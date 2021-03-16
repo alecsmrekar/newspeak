@@ -6,7 +6,6 @@ import (
 	"net/http"
 )
 
-// Oh dear. Globals...
 var clients = make(map[*websocket.Conn]bool)
 var broadcast = make(chan Message)
 var upgrader = websocket.Upgrader{
