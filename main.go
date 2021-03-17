@@ -60,7 +60,7 @@ func handleMessages() {
 
 func main() {
 
-	fs := http.FileServer(http.Dir("web"))
+	fs := http.FileServer(http.Dir("./web/dist"))
 	http.Handle("/", fs)
 
 	http.HandleFunc("/ws", handleConnections)
