@@ -8,11 +8,11 @@
 import ChatApp from "@/components/ChatApp";
 import Vue from "vue";
 import * as VueGoogleMaps from "vue2-google-maps";
-
+import { maps_key } from "./keys";
 
 Vue.use(VueGoogleMaps, {
   load: {
-    key: "AIzaSyA1YSCBIT7bedXGz11kEPSnhz_XGHQrjs8",
+    key: maps_key,
   }
 });
 
