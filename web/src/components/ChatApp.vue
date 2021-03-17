@@ -42,6 +42,10 @@
         :center="{ lat: 45.508, lng: -73.587 }"
         :zoom="3"
         style="width:100%;  height: 400px;"
+        :options="{
+          streetViewControl: false,
+          fullscreenControl: false,
+        }"
     >
       <gmap-marker
         :position="startingCenter"
@@ -57,14 +61,23 @@
       ></gmap-circle>
     </gmap-map>
   </div>
+    <div class="radius">
+      <vue-range-slider @change="radiusChange"
+                        style="width: 100%"
+                        :min="1000"
+                        :max="500000"
+          ref="slider" v-model="slider_radius"></vue-range-slider>
+    </div>
 
   </div>
 </template>
 
-
 <script>
 
+import VueRangeSlider from "vue-range-slider";
+
 export default {
+  components: { VueRangeSlider },
   name: 'ChatApp',
   data: function() {
     return {
@@ -75,7 +88,9 @@ export default {
       joined: false, // True if email and username have been filled in
       center: { lat: 45.508, lng: -73.587 },
       startingCenter: { lat: 45.508, lng: -73.587 },
-      radius: 500000,
+      radius: 200000,
+      max_radius:500000,
+      slider_radius: 200000,
       join_error: '',
     }
   },
@@ -98,9 +113,11 @@ export default {
     });
   },
   methods: {
+    radiusChange: function () {
+      this.radius = this.slider_radius;
+    },
     testDrag: function (arg) {
       this.center = arg.latLng;
-      this.radius *= 1.2;
     },
     stripHtml: function (html){
       var temporalDivElement = document.createElement("div");
