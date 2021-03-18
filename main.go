@@ -7,21 +7,26 @@ import (
 	"sync"
 )
 
+type UserData struct {
+	Location int
+	Radius int
+}
+
 // Concurrency safe map of clients
 // http://dnaeon.github.io/concurrent-maps-and-slices-in-go/
 type ClientsMap struct {
 	sync.RWMutex
-	items map[*websocket.Conn]interface{}
+	items map[*websocket.Conn]UserData
 }
 
 // Concurrent map of clients
 type ClientsMapItem struct {
 	Key   *websocket.Conn
-	Value interface{}
+	Value UserData
 }
 
 // Sets a key in the concurrent map of clients
-func (clients *ClientsMap) Set(connectionKey *websocket.Conn, value interface{}) {
+func (clients *ClientsMap) Set(connectionKey *websocket.Conn, value UserData) {
 	clients.Lock()
 	defer clients.Unlock()
 	clients.items[connectionKey] = value
@@ -35,12 +40,14 @@ func (clients *ClientsMap) Delete (connectionKey *websocket.Conn) {
 }
 
 // Gets a key from the concurrent map  of clients
-func (clients *ClientsMap) Get(connectionKey *websocket.Conn) (interface{}, bool) {
+func (clients *ClientsMap) Get(connectionKey *websocket.Conn) (UserData, bool) {
 	clients.Lock()
 	defer clients.Unlock()
 	value, ok := clients.items[connectionKey]
 	return value, ok
 }
+
+
 
 // Iterates over the items in a concurrent map
 // Each item is sent over a channel, so that
@@ -62,7 +69,8 @@ func (clients *ClientsMap) Iter() <-chan ClientsMapItem {
 	return c
 }
 
-var clients_map = ClientsMap{items: make(map[*websocket.Conn]interface{})}
+
+var clients_map = ClientsMap{items: make(map[*websocket.Conn]UserData)}
 var broadcast = make(chan Message)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -75,6 +83,14 @@ type Message struct {
 	Message  string `json:"message"`
 }
 
+func attachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
+	clients.Set(connectionKey, UserData{})
+}
+
+func detachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
+	clients.Delete(connectionKey)
+}
+
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -82,8 +98,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	// ensure connection close when function returns
 	defer ws.Close()
-	clients_map.Set(ws, true)
-
+	attachClient(&clients_map, ws)
 
 	for {
 		var msg Message
@@ -91,7 +106,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		err := ws.ReadJSON(&msg)
 		if err != nil {
 			log.Printf("error: %v", err)
-			clients_map.Delete(ws)
+			detachClient(&clients_map, ws)
 			break
 		}
 		// send the new message to the broadcast channel
@@ -110,7 +125,7 @@ func handleMessages() {
 			if err != nil {
 				log.Printf("error: %v", err)
 				client.Close()
-				clients_map.Delete(client)
+				detachClient(&clients_map, client)
 			}
 		}
 	}
