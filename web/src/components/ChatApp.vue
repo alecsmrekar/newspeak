@@ -39,7 +39,7 @@
     <br>
     <div>
     <gmap-map
-        :center="{ lat: 45.508, lng: -73.587 }"
+        :center="startingCenter"
         :zoom="3"
         style="width:100%;  height: 400px;"
         :options="{
@@ -65,7 +65,7 @@
       <vue-range-slider @change="radiusChange"
                         style="width: 100%"
                         :min="1000"
-                        :max="500000"
+                        :max="300000"
           ref="slider" v-model="slider_radius"></vue-range-slider>
     </div>
 
@@ -88,9 +88,9 @@ export default {
       joined: false, // True if email and username have been filled in
       center: { lat: 45.508, lng: -73.587 },
       startingCenter: { lat: 45.508, lng: -73.587 },
-      radius: 200000,
-      max_radius:500000,
-      slider_radius: 200000,
+      radius: 100000,
+      max_radius:300000,
+      slider_radius: 100000,
       join_error: '',
     }
   },
@@ -125,12 +125,11 @@ export default {
     },
     mapDrag: function (arg) {
       this.center = arg.latLng;
-
       // Update the users location as he changes it
       this.ws.send(
           JSON.stringify({
-                lat: this.center.lat,
-                lng: this.center.lng,
+                lat: Number(this.center.lat().toFixed(3)),
+                lng: Number(this.center.lng().toFixed(3)),
                 type: 'location',
               }
           ));

@@ -6,14 +6,7 @@ import (
 	"net/http"
 )
 
-var clients_map = ClientsMap{items: make(map[*websocket.Conn]UserData)}
-var broadcast = make(chan Broadcast)
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
+// Represents an outgoing chat message
 type Broadcast struct {
 	Username string     `json:"username"`
 	Message  string     `json:"message"`
@@ -22,13 +15,7 @@ type Broadcast struct {
 type radius int
 type coordinate float32
 
-type RegisterMessage struct {
-	Username string
-	Radius radius
-	Lat coordinate
-	Lng coordinate
-}
-
+// Represents an incoming communication
 type Message struct {
 	Username string     `json:"username"`
 	Message  string     `json:"message"`
@@ -38,6 +25,16 @@ type Message struct {
 	Radius   radius     `json:"radius"`
 }
 
+
+var clients_map = ClientsMap{items: make(map[*websocket.Conn]UserData)}
+var broadcast = make(chan Broadcast)
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+// Class that is used to handle user data
 type UserPayload struct {
 	message Message
 }
@@ -50,6 +47,7 @@ func detachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
 	clients.Delete(connectionKey)
 }
 
+// A thread that handles one client's communications
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -90,7 +88,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleMessages() {
+// Receives messages from the broadcast channel and sends them out
+func handleMessageBroadcasting() {
 	for {
 		// grab next message from the broadcast channel
 		msg := <-broadcast
@@ -114,8 +113,10 @@ func main() {
 
 	// the function will launch a new goroutine for each request
 	http.HandleFunc("/ws", handleConnections)
-	for i := 0; i < 1; i++ {
-		go handleMessages()
+
+	// Launch a few thread that send out messages
+	for i := 0; i < 4; i++ {
+		go handleMessageBroadcasting()
 	}
 
 	log.Println("http server started on :8000")
