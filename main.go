@@ -1,91 +1,45 @@
 package main
 
 import (
-	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-	"sync"
 )
 
-type UserData struct {
-	Lat float32
-	Lng float32
-	Radius int
-}
-
-// Concurrency safe map of clients
-type ClientsMap struct {
-	sync.RWMutex
-	items map[*websocket.Conn]UserData
-}
-
-// Concurrent map of clients
-type ClientsMapItem struct {
-	Key   *websocket.Conn
-	Value UserData
-}
-
-// Sets a key in the concurrent map of clients
-func (clients *ClientsMap) Set(connectionKey *websocket.Conn, value UserData) {
-	clients.Lock()
-	defer clients.Unlock()
-	clients.items[connectionKey] = value
-}
-
-// Sets a key in the concurrent map of clients
-func (clients *ClientsMap) Delete (connectionKey *websocket.Conn) {
-	clients.Lock()
-	defer clients.Unlock()
-	delete(clients.items, connectionKey)
-}
-
-// Gets a key from the concurrent map  of clients
-func (clients *ClientsMap) Get(connectionKey *websocket.Conn) (UserData, bool) {
-	clients.Lock()
-	defer clients.Unlock()
-	value, ok := clients.items[connectionKey]
-	return value, ok
-}
-
-
-// Iterates over the items in a concurrent map
-// Each item is sent over a channel, so that
-// we can iterate over the map using the builtin range keyword
-func (clients *ClientsMap) Iter() <-chan ClientsMapItem {
-
-	c := make(chan ClientsMapItem)
-
-	f := func() {
-		clients.Lock()
-		defer clients.Unlock()
-
-		for k, v := range clients.items {
-			c <- ClientsMapItem{k, v}
-		}
-		close(c)
-	}
-	go f()
-	return c
-}
-
-
 var clients_map = ClientsMap{items: make(map[*websocket.Conn]UserData)}
-var broadcast = make(chan Message)
+var broadcast = make(chan Broadcast)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
 
+type Broadcast struct {
+	Username string     `json:"username"`
+	Message  string     `json:"message"`
+}
+
+type radius int
+type coordinate float32
+
+type RegisterMessage struct {
+	Username string
+	Radius radius
+	Lat coordinate
+	Lng coordinate
+}
+
 type Message struct {
-	Username 	string `json:"username"`
-	Message  	string `json:"message"`
-	CoordLat  	float32 `json:"lat"`
-	CoordLng  	float32 `json:"lng"`
-	Radius  	int `json:"radius"`
-	IsRadiusUpdate bool `json:"radiusUpdate"`
-	IsLocationUpdate bool `json:"locationUpdate"`
+	Username string     `json:"username"`
+	Message  string     `json:"message"`
+	CoordLat coordinate `json:"lat"`
+	CoordLng coordinate `json:"lng"`
+	MsgType  string     `json:"type"`
+	Radius   radius     `json:"radius"`
+}
+
+type UserPayload struct {
+	message Message
 }
 
 func attachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
@@ -104,6 +58,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	// ensure connection close when function returns
 	defer ws.Close()
 	attachClient(&clients_map, ws)
+	user := getUserByConnectionID(ws)
 
 	for {
 		var msg Message
@@ -114,8 +69,24 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			detachClient(&clients_map, ws)
 			break
 		}
-		// send the new message to the broadcast channel
-		broadcast <- msg
+
+		switch msg.MsgType {
+		case "message":
+			broadcast <- Broadcast{
+				Message:  msg.Message,
+				Username: user.data.Username,
+			}
+		case "register":
+			user.updateData(UserPayload{message: msg}, &register{})
+		case "radius":
+			user.updateData(UserPayload{message: msg}, &updateRadius{})
+		case "location":
+			user.updateData(UserPayload{message: msg}, &updateCoordinates{})
+		default:
+			log.Println("Unknown communication type")
+			detachClient(&clients_map, ws)
+			break
+		}
 	}
 }
 
@@ -126,50 +97,14 @@ func handleMessages() {
 		// send it out to every client that is currently connected
 		for KeyValPair := range clients_map.Iter() {
 			client := KeyValPair.Key
-
-			if msg.IsRadiusUpdate {
-				updateUserRadius(client, msg.Radius)
-			}
-
-			if msg.IsLocationUpdate {
-				updateUserCoordinates(client, msg.CoordLat, msg.CoordLng)
-			}
-
-			if len(msg.Message) > 0 {
-				err := client.WriteJSON(msg)
-				if err != nil {
-					log.Printf("error: %v", err)
-					client.Close()
-					detachClient(&clients_map, client)
-				}
+			err := client.WriteJSON(msg)
+			if err != nil {
+				log.Printf("error: %v", err)
+				client.Close()
+				detachClient(&clients_map, client)
 			}
 		}
 	}
-}
-
-func updateUserRadius(connectionKey *websocket.Conn, radius int) {
-	user_data, found := clients_map.Get(connectionKey)
-	if !found {
-		log.Println("Unknown client: Tried to update radius")
-		connectionKey.Close()
-		detachClient(&clients_map, connectionKey)
-	}
-	user_data.Radius = radius
-	clients_map.Set(connectionKey, user_data)
-	fmt.Printf("Setting radius\n")
-}
-
-func updateUserCoordinates(connectionKey *websocket.Conn, lat float32, lng float32) {
-	user_data, found := clients_map.Get(connectionKey)
-	if !found {
-		log.Println("Unknown client: Tried to update coordinates")
-		connectionKey.Close()
-		detachClient(&clients_map, connectionKey)
-	}
-	user_data.Lat = lat
-	user_data.Lng = lng
-	clients_map.Set(connectionKey, user_data)
-	fmt.Printf("Setting coordinates\n")
 }
 
 func main() {
@@ -179,7 +114,7 @@ func main() {
 
 	// the function will launch a new goroutine for each request
 	http.HandleFunc("/ws", handleConnections)
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 1; i++ {
 		go handleMessages()
 	}
 

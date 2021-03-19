@@ -99,15 +99,14 @@ export default {
   created: function() {
     var self = this;
     this.ws = new WebSocket('ws://' + window.location.host + '/ws');
-
     // Handle incoming messages
     this.ws.addEventListener('message', function(e) {
+      console.log(e);
       var msg = JSON.parse(e.data);
       self.chatContent += '<div class="chip">'
           + msg.username
           + '</div>'
           + msg.message + '<br/>';
-
       var element = document.getElementById('chat-messages');
       element.scrollTop = element.scrollHeight; // Auto scroll to the bottom
     });
@@ -120,7 +119,7 @@ export default {
       this.ws.send(
           JSON.stringify({
                 radius: this.radius,
-                radiusUpdate: true,
+                type: 'radius',
               }
           ));
     },
@@ -132,7 +131,7 @@ export default {
           JSON.stringify({
                 lat: this.center.lat,
                 lng: this.center.lng,
-                locationUpdate: true,
+                type: 'location',
               }
           ));
     },
@@ -142,11 +141,11 @@ export default {
       return temporalDivElement.textContent || temporalDivElement.innerText || "";
     },
     send: function () {
-      if (this.newMsg != '') {
+      if (this.newMsg !== '') {
         this.ws.send(
             JSON.stringify({
-                  username: this.username,
-                  message: this.stripHtml(this.newMsg)
+                  message: this.stripHtml(this.newMsg),
+                  type: 'message',
                 }
             ));
         this.newMsg = '';
@@ -154,7 +153,7 @@ export default {
     },
     join: function () {
       if (!this.username) {
-         this.join_error = 'Please enter a username';
+         this.join_error = 'Please ente r a username';
         return
       }
       this.username = this.stripHtml(this.username);
@@ -163,11 +162,11 @@ export default {
       // As soon as the user joins, initialize his initial geo data
       this.ws.send(
           JSON.stringify({
+                username: this.username,
                 radius: this.radius,
-                radiusUpdate: true,
                 lat: this.center.lat,
                 lng: this.center.lng,
-                locationUpdate: true,
+                type: 'register'
               }
           ));
     },
