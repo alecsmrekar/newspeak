@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -8,12 +9,12 @@ import (
 )
 
 type UserData struct {
-	Location int
+	Lat float32
+	Lng float32
 	Radius int
 }
 
 // Concurrency safe map of clients
-// http://dnaeon.github.io/concurrent-maps-and-slices-in-go/
 type ClientsMap struct {
 	sync.RWMutex
 	items map[*websocket.Conn]UserData
@@ -48,7 +49,6 @@ func (clients *ClientsMap) Get(connectionKey *websocket.Conn) (UserData, bool) {
 }
 
 
-
 // Iterates over the items in a concurrent map
 // Each item is sent over a channel, so that
 // we can iterate over the map using the builtin range keyword
@@ -79,8 +79,13 @@ var upgrader = websocket.Upgrader{
 }
 
 type Message struct {
-	Username string `json:"username"`
-	Message  string `json:"message"`
+	Username 	string `json:"username"`
+	Message  	string `json:"message"`
+	CoordLat  	float32 `json:"lat"`
+	CoordLng  	float32 `json:"lng"`
+	Radius  	int `json:"radius"`
+	IsRadiusUpdate bool `json:"radiusUpdate"`
+	IsLocationUpdate bool `json:"locationUpdate"`
 }
 
 func attachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
@@ -121,14 +126,50 @@ func handleMessages() {
 		// send it out to every client that is currently connected
 		for KeyValPair := range clients_map.Iter() {
 			client := KeyValPair.Key
-			err := client.WriteJSON(msg)
-			if err != nil {
-				log.Printf("error: %v", err)
-				client.Close()
-				detachClient(&clients_map, client)
+
+			if msg.IsRadiusUpdate {
+				updateUserRadius(client, msg.Radius)
+			}
+
+			if msg.IsLocationUpdate {
+				updateUserCoordinates(client, msg.CoordLat, msg.CoordLng)
+			}
+
+			if len(msg.Message) > 0 {
+				err := client.WriteJSON(msg)
+				if err != nil {
+					log.Printf("error: %v", err)
+					client.Close()
+					detachClient(&clients_map, client)
+				}
 			}
 		}
 	}
+}
+
+func updateUserRadius(connectionKey *websocket.Conn, radius int) {
+	user_data, found := clients_map.Get(connectionKey)
+	if !found {
+		log.Println("Unknown client: Tried to update radius")
+		connectionKey.Close()
+		detachClient(&clients_map, connectionKey)
+	}
+	user_data.Radius = radius
+	clients_map.Set(connectionKey, user_data)
+	fmt.Printf("Setting radius\n")
+}
+
+func updateUserCoordinates(connectionKey *websocket.Conn, lat float32, lng float32) {
+	user_data, found := clients_map.Get(connectionKey)
+	if !found {
+		log.Println("Unknown client: Tried to update coordinates")
+		connectionKey.Close()
+		detachClient(&clients_map, connectionKey)
+	}
+	user_data.Lat = lat
+	user_data.Lng = lng
+	clients_map.Set(connectionKey, user_data)
+	fmt.Printf("Setting coordinates\n")
 }
 
 func main() {
@@ -136,6 +177,7 @@ func main() {
 	fs := http.FileServer(http.Dir("./web/dist"))
 	http.Handle("/", fs)
 
+	// the function will launch a new goroutine for each request
 	http.HandleFunc("/ws", handleConnections)
 	for i := 0; i < 2; i++ {
 		go handleMessages()

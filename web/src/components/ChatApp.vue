@@ -50,7 +50,7 @@
       <gmap-marker
         :position="startingCenter"
         :draggable="true"
-        @dragend="testDrag"
+        @dragend="mapDrag"
         ></gmap-marker>
       <gmap-circle
           :strokeOpacity= "0.8"
@@ -115,9 +115,26 @@ export default {
   methods: {
     radiusChange: function () {
       this.radius = this.slider_radius;
+
+      // Update the users radius as he changes it
+      this.ws.send(
+          JSON.stringify({
+                radius: this.radius,
+                radiusUpdate: true,
+              }
+          ));
     },
-    testDrag: function (arg) {
+    mapDrag: function (arg) {
       this.center = arg.latLng;
+
+      // Update the users location as he changes it
+      this.ws.send(
+          JSON.stringify({
+                lat: this.center.lat,
+                lng: this.center.lng,
+                locationUpdate: true,
+              }
+          ));
     },
     stripHtml: function (html){
       var temporalDivElement = document.createElement("div");
@@ -142,6 +159,17 @@ export default {
       }
       this.username = this.stripHtml(this.username);
       this.joined = true;
+
+      // As soon as the user joins, initialize his initial geo data
+      this.ws.send(
+          JSON.stringify({
+                radius: this.radius,
+                radiusUpdate: true,
+                lat: this.center.lat,
+                lng: this.center.lng,
+                locationUpdate: true,
+              }
+          ));
     },
   },
 }
