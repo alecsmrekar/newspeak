@@ -1,4 +1,4 @@
-# web4
+# Web Client for Newspeak
 
 ## Project setup
 ```

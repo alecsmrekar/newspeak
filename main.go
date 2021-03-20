@@ -6,10 +6,15 @@ import (
 	"net/http"
 )
 
+const MaxRadius = 200000 // defined in meters
+
+
 // Represents an outgoing chat message
 type Broadcast struct {
+	Type string			`json:"type"`
 	Username string     `json:"username"`
 	Message  string     `json:"message"`
+	MaxRadius radius 	`json:"max_radius"`
 }
 
 type radius int
@@ -41,6 +46,13 @@ type UserPayload struct {
 
 func attachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
 	clients.Set(connectionKey, UserData{})
+
+	// After attaching client, we need to broadcast the max_range param
+	msg := Broadcast{
+		Type: "max_radius",
+		MaxRadius: MaxRadius,
+	}
+	sendBroadcast(connectionKey, msg)
 }
 
 func detachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
@@ -71,6 +83,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		switch msg.MsgType {
 		case "message":
 			broadcast <- Broadcast{
+				Type: "message",
 				Message:  msg.Message,
 				Username: user.data.Username,
 			}
@@ -96,13 +109,18 @@ func handleMessageBroadcasting() {
 		// send it out to every client that is currently connected
 		for KeyValPair := range clients_map.Iter() {
 			client := KeyValPair.Key
-			err := client.WriteJSON(msg)
-			if err != nil {
-				log.Printf("error: %v", err)
-				client.Close()
-				detachClient(&clients_map, client)
-			}
+			sendBroadcast(client, msg)
 		}
+	}
+}
+
+// Send a message to a single user
+func sendBroadcast(client *websocket.Conn, msg Broadcast) {
+	err := client.WriteJSON(msg)
+	if err != nil {
+		log.Printf("error: %v", err)
+		client.Close()
+		detachClient(&clients_map, client)
 	}
 }
 

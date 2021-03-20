@@ -65,7 +65,7 @@
       <vue-range-slider @change="radiusChange"
                         style="width: 100%"
                         :min="1000"
-                        :max="300000"
+                        :max="max_radius"
           ref="slider" v-model="slider_radius"></vue-range-slider>
     </div>
 
@@ -99,16 +99,22 @@ export default {
   created: function() {
     var self = this;
     this.ws = new WebSocket('ws://' + window.location.host + '/ws');
-    // Handle incoming messages
     this.ws.addEventListener('message', function(e) {
-      console.log(e);
       var msg = JSON.parse(e.data);
-      self.chatContent += '<div class="chip">'
-          + msg.username
-          + '</div>'
-          + msg.message + '<br/>';
-      var element = document.getElementById('chat-messages');
-      element.scrollTop = element.scrollHeight; // Auto scroll to the bottom
+      if (msg.type == 'message') {
+        self.chatContent += '<div class="chip">'
+            + msg.username
+            + '</div>'
+            + msg.message + '<br/>';
+        var element = document.getElementById('chat-messages');
+        element.scrollTop = element.scrollHeight; // Auto scroll to the bottom
+      }
+      else if (msg.type == 'max_radius') {
+        self.max_radius=msg.max_radius;
+      }
+      else {
+        console.log('Unknown broadcast type');
+      }
     });
   },
   methods: {
