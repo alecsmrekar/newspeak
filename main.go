@@ -6,32 +6,36 @@ import (
 	"net/http"
 )
 
-const MaxRadius = 200000 // defined in meters
-
 
 // Represents an outgoing chat message
 type Broadcast struct {
 	Type string			`json:"type"`
 	Username string     `json:"username"`
 	Message  string     `json:"message"`
-	MaxRadius radius 	`json:"max_radius"`
 }
 
-type radius int
+type UserUUID *websocket.Conn
 type coordinate float32
 
 // Represents an incoming communication
 type Message struct {
+	RoomID 	int			`json:"room_id"`
+	RoomName 	string		`json:"room_name"`
 	Username string     `json:"username"`
 	Message  string     `json:"message"`
-	CoordLat coordinate `json:"lat"`
-	CoordLng coordinate `json:"lng"`
 	MsgType  string     `json:"type"`
-	Radius   radius     `json:"radius"`
+	Lat 	coordinate `json:"lat"`
+	Lng 	coordinate `json:"lng"`
+}
+
+type GeoLocation struct {
+	Lat coordinate
+	Lng coordinate
 }
 
 
-var clients_map = ClientsMap{items: make(map[*websocket.Conn]UserData)}
+var roomStorage = RoomStorage{items: make(map[int]Room)}
+var clients_map = ClientsMap{items: make(map[UserUUID]User)}
 var broadcast = make(chan Broadcast)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -44,18 +48,13 @@ type UserPayload struct {
 	message Message
 }
 
-func attachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
-	clients.Set(connectionKey, UserData{})
-
-	// After attaching client, we need to broadcast the max_range param
-	msg := Broadcast{
-		Type: "max_radius",
-		MaxRadius: MaxRadius,
-	}
-	sendBroadcast(connectionKey, msg)
+func attachClient (clients *ClientsMap, id UserUUID) {
+	clients.Set(id, User{
+		connectionKey: id,
+	})
 }
 
-func detachClient (clients *ClientsMap, connectionKey *websocket.Conn) {
+func detachClient (clients *ClientsMap, connectionKey UserUUID) {
 	clients.Delete(connectionKey)
 }
 
@@ -68,7 +67,15 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	// ensure connection close when function returns
 	defer ws.Close()
 	attachClient(&clients_map, ws)
-	user := getUserByConnectionID(ws)
+
+	var uuid UserUUID = ws
+	user, found := clients_map.Get(uuid)
+	if !found {
+		log.Println("User not found")
+		ws.Close()
+		detachClient(&clients_map, uuid)
+	}
+
 
 	for {
 		var msg Message
@@ -85,14 +92,15 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			broadcast <- Broadcast{
 				Type: "message",
 				Message:  msg.Message,
-				Username: user.data.Username,
+				Username: user.username,
 			}
+		case "new_room":
+			_ = createRoom(msg.RoomName, msg.Lat, msg.Lng)
+			// TODO notify user of room ID
 		case "register":
-			user.updateData(UserPayload{message: msg}, &register{})
-		case "radius":
-			user.updateData(UserPayload{message: msg}, &updateRadius{})
-		case "location":
-			user.updateData(UserPayload{message: msg}, &updateCoordinates{})
+			strategy := &register{}
+			strategy.update(&user, UserPayload{message: msg})
+			clients_map.Set(uuid, user)
 		default:
 			log.Println("Unknown communication type")
 			detachClient(&clients_map, ws)
@@ -107,9 +115,8 @@ func handleMessageBroadcasting() {
 		// grab next message from the broadcast channel
 		msg := <-broadcast
 		// send it out to every client that is currently connected
-		for KeyValPair := range clients_map.Iter() {
-			client := KeyValPair.Key
-			sendBroadcast(client, msg)
+		for user := range clients_map.Iter() {
+			sendBroadcast(user.connectionKey, msg)
 		}
 	}
 }
