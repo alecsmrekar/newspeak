@@ -9,9 +9,16 @@ type Room struct {
 	ID int
 	Name string
 	Location GeoLocation
-	Members []*websocket.Conn
+	Members []UserUUID
 }
 
+// Concurrency safe
+type RoomStorage struct {
+	sync.RWMutex
+	items map[int]Room
+}
+
+// Quasi factory for Rooms
 func createRoom (name string, lat coordinate, lng coordinate) Room {
 	new := Room{
 		Name:     name,
@@ -21,17 +28,12 @@ func createRoom (name string, lat coordinate, lng coordinate) Room {
 	return new
 }
 
-func (room *Room) addMember (conn *websocket.Conn) {
-	roomStorage.AddMember(room.ID, conn)
+// Add member to room
+func (room *Room) addMember (id UserUUID) {
+	*room = roomStorage.AddMember(room.ID, id)
 }
 
-// Concurrency safe
-type RoomStorage struct {
-	sync.RWMutex
-	items map[int]Room
-}
-
-// Sets a key in the concurrent map of clients
+// Register new room
 func (data *RoomStorage) RegisterRoom(room *Room) {
 	data.Lock()
 	defer data.Unlock()
@@ -40,7 +42,7 @@ func (data *RoomStorage) RegisterRoom(room *Room) {
 	data.items[nextID] = *room
 }
 
-// Sets a key in the concurrent map of clients
+// Get the room object
 func (data *RoomStorage) GetRoom(id int) (Room, bool) {
 	data.Lock()
 	defer data.Unlock()
@@ -48,19 +50,31 @@ func (data *RoomStorage) GetRoom(id int) (Room, bool) {
 	return room, ok
 }
 
-func (data *RoomStorage) AddMember(ID int, member *websocket.Conn) {
+// Add a member to a room
+func (data *RoomStorage) AddMember(ID int, uid UserUUID) Room {
+	data.Lock()
+	defer data.Unlock()
+	room := data.items[ID]
+	room.Members = append(room.Members, uid)
+	return room
+}
+
+// Remove member from room
+func (data *RoomStorage) RemoveMember(ID int, member *websocket.Conn) {
 	data.Lock()
 	defer data.Unlock()
 	room := data.items[ID]
 	room.Members = append(room.Members, member)
 }
 
+// Delete room
 func (data *RoomStorage) Delete(room *Room) {
 	data.Lock()
 	defer data.Unlock()
 	delete(data.items, room.ID)
 }
 
+// Get all rooms
 func (data *RoomStorage) GetAll() map[int]Room {
 	data.Lock()
 	defer data.Unlock()

@@ -8,17 +8,20 @@ import (
 
 
 // Represents an outgoing chat message
-type Broadcast struct {
+type OutgoingBroadcast struct {
 	Type string			`json:"type"`
 	Username string     `json:"username"`
 	Message  string     `json:"message"`
+	Room Room			`json:"room"`
 }
 
+// The way we identify the user is modular
+// Currently, it's based on the WebSocker connection ID
 type UserUUID *websocket.Conn
 type coordinate float32
 
 // Represents an incoming communication
-type Message struct {
+type IncomingMessage struct {
 	RoomID 	int			`json:"room_id"`
 	RoomName 	string		`json:"room_name"`
 	Username string     `json:"username"`
@@ -33,10 +36,10 @@ type GeoLocation struct {
 	Lng coordinate
 }
 
-
+var roomNotificationQueue = make(chan Room, 1000)
 var roomStorage = RoomStorage{items: make(map[int]Room)}
 var clients_map = ClientsMap{items: make(map[UserUUID]User)}
-var broadcast = make(chan Broadcast)
+var broadcast = make(chan OutgoingBroadcast)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -45,12 +48,12 @@ var upgrader = websocket.Upgrader{
 
 // Class that is used to handle user data
 type UserPayload struct {
-	message Message
+	message IncomingMessage
 }
 
-func attachClient (clients *ClientsMap, id UserUUID) {
-	clients.Set(id, User{
-		connectionKey: id,
+func attachClient (clients *ClientsMap, connectionKey UserUUID) {
+	clients.Set(connectionKey, User{
+		connectionKey: connectionKey,
 	})
 }
 
@@ -78,7 +81,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 
 	for {
-		var msg Message
+		var msg IncomingMessage
 		// Read in a new message as JSON and map it to a Message object
 		err := ws.ReadJSON(&msg)
 		if err != nil {
@@ -89,14 +92,20 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 		switch msg.MsgType {
 		case "message":
-			broadcast <- Broadcast{
+			broadcast <- OutgoingBroadcast{
 				Type: "message",
 				Message:  msg.Message,
 				Username: user.username,
 			}
-		case "new_room":
-			_ = createRoom(msg.RoomName, msg.Lat, msg.Lng)
-			// TODO notify user of room ID
+		case "create_room":
+			room := createRoom(msg.RoomName, msg.Lat, msg.Lng)
+			room.addMember(uuid)
+			reply := OutgoingBroadcast{
+				Type:     "room_created",
+				Room:     room,
+			}
+			sendBroadcast(ws, reply)
+			roomNotificationQueue <- room
 		case "register":
 			strategy := &register{}
 			strategy.update(&user, UserPayload{message: msg})
@@ -121,8 +130,24 @@ func handleMessageBroadcasting() {
 	}
 }
 
+// Receives newly created rooms and and notifies clients
+func handleRoomNotifications() {
+	for {
+		// grab next room from the queue
+		room := <-roomNotificationQueue
+		msg := OutgoingBroadcast{
+			Type:     "new_room",
+			Room:     room,
+		}
+		// Notify all connected clients
+		for user := range clients_map.Iter() {
+			sendBroadcast(user.connectionKey, msg)
+		}
+	}
+}
+
 // Send a message to a single user
-func sendBroadcast(client *websocket.Conn, msg Broadcast) {
+func sendBroadcast(client *websocket.Conn, msg OutgoingBroadcast) {
 	err := client.WriteJSON(msg)
 	if err != nil {
 		log.Printf("error: %v", err)
@@ -142,6 +167,11 @@ func main() {
 	// Launch a few thread that send out messages
 	for i := 0; i < 4; i++ {
 		go handleMessageBroadcasting()
+	}
+
+	// Launch a few thread that send out room notifications
+	for i := 0; i < 4; i++ {
+		go handleRoomNotifications()
 	}
 
 	log.Println("http server started on :8000")

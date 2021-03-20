@@ -11,24 +11,24 @@ type ClientsMap struct {
 }
 
 // Sets a key in the concurrent map of clients
-func (clients *ClientsMap) Set(connectionKey UserUUID, value User) {
+func (clients *ClientsMap) Set(id UserUUID, value User) {
 	clients.Lock()
 	defer clients.Unlock()
-	clients.items[connectionKey] = value
+	clients.items[id] = value
 }
 
 // Sets a key in the concurrent map of clients
-func (clients *ClientsMap) Delete (connectionKey UserUUID) {
+func (clients *ClientsMap) Delete (id UserUUID) {
 	clients.Lock()
 	defer clients.Unlock()
-	delete(clients.items, connectionKey)
+	delete(clients.items, id)
 }
 
 // Gets a key from the concurrent map  of clients
-func (clients *ClientsMap) Get(connectionKey UserUUID) (User, bool) {
+func (clients *ClientsMap) Get(id UserUUID) (User, bool) {
 	clients.Lock()
 	defer clients.Unlock()
-	value, ok := clients.items[connectionKey]
+	value, ok := clients.items[id]
 	return value, ok
 }
 
