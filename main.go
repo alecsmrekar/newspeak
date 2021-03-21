@@ -72,13 +72,13 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	attachClient(&clients_map, ws)
 
 	var uuid UserUUID = ws
+	var usersCurrentRoomID int = -1
 	user, found := clients_map.Get(uuid)
 	if !found {
-		log.Println("User not found")
+		log.Println("Error adding client to client map")
 		ws.Close()
 		detachClient(&clients_map, uuid)
 	}
-
 
 	for {
 		var msg IncomingMessage
@@ -98,14 +98,25 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				Username: user.username,
 			}
 		case "create_room":
-			room := createRoom(msg.RoomName, msg.Lat, msg.Lng)
-			room.addMember(uuid)
+			createdRoom := createRoom(msg.RoomName, msg.Lat, msg.Lng)
+			createdRoom.addMember(uuid)
+			usersCurrentRoomID = createdRoom.ID
 			reply := OutgoingBroadcast{
-				Type:     "room_created",
-				Room:     room,
+				Type:     "room_joined",
+				Room:     createdRoom,
 			}
 			sendBroadcast(ws, reply)
-			roomNotificationQueue <- room
+			roomNotificationQueue <- createdRoom
+		case "join_room":
+			if usersCurrentRoomID >= 0 {
+				roomStorage.RemoveMember(usersCurrentRoomID, uuid)
+			}
+			joinedRoom := roomStorage.AddMember(msg.RoomID, uuid)
+			reply := OutgoingBroadcast{
+				Type:     "room_joined",
+				Room:     joinedRoom,
+			}
+			sendBroadcast(ws, reply)
 		case "register":
 			strategy := &register{}
 			strategy.update(&user, UserPayload{message: msg})
