@@ -38,35 +38,22 @@
 
     <br>
     <div>
-    <gmap-map
-        :center="startingCenter"
-        :zoom="3"
-        style="width:100%;  height: 400px;"
-        :options="{
-          streetViewControl: false,
-          fullscreenControl: false,
-        }"
-    >
-      <gmap-marker
-        :position="startingCenter"
-        :draggable="true"
-        @dragend="mapDrag"
+      <gmap-map
+          :center="startingCenter"
+          :zoom="3"
+          style="width:100%;  height: 400px;"
+          :options="{
+streetViewControl: false,
+fullscreenControl: false,
+}"
+      >
+        <gmap-marker v-for="(item, key) in allRooms"
+                     :key="key"
+                     :label="item.Name"
+            :position="getRoomGeo(item)"
+            :draggable="true"
         ></gmap-marker>
-      <gmap-circle
-          :strokeOpacity= "0.8"
-          :strokeWeight= "2"
-          :fillOpacity= "0.5"
-          :center="center"
-          :radius="radius"
-      ></gmap-circle>
-    </gmap-map>
-  </div>
-    <div class="radius">
-      <vue-range-slider @change="radiusChange"
-                        style="width: 100%"
-                        :min="1000"
-                        :max="max_radius"
-          ref="slider" v-model="slider_radius"></vue-range-slider>
+      </gmap-map>
     </div>
 
   </div>
@@ -74,10 +61,8 @@
 
 <script>
 
-import VueRangeSlider from "vue-range-slider";
-
 export default {
-  components: { VueRangeSlider },
+  components: {},
   name: 'ChatApp',
   data: function() {
     return {
@@ -86,12 +71,10 @@ export default {
       chatContent: '', // A running list of chat messages displayed on the screen
       username: null, // Our username
       joined: false, // True if email and username have been filled in
-      center: { lat: 45.508, lng: -73.587 },
       startingCenter: { lat: 45.508, lng: -73.587 },
-      radius: 100000,
-      max_radius:300000,
-      slider_radius: 100000,
       join_error: '',
+      allRooms: {},
+      myRoom: null
     }
   },
   mounted() {
@@ -101,7 +84,7 @@ export default {
     this.ws = new WebSocket('ws://' + window.location.host + '/ws');
     this.ws.addEventListener('message', function(e) {
       var msg = JSON.parse(e.data);
-      if (msg.type == 'message') {
+      if (msg.type === 'message') {
         self.chatContent += '<div class="chip">'
             + msg.username
             + '</div>'
@@ -109,8 +92,12 @@ export default {
         var element = document.getElementById('chat-messages');
         element.scrollTop = element.scrollHeight; // Auto scroll to the bottom
       }
-      else if (msg.type == 'max_radius') {
-        self.max_radius=msg.max_radius;
+      else if (msg.type === 'room_list') {
+        self.allRooms = msg.room_list;
+        console.log('all rooms:', self.allRooms)
+      }
+      else if (msg.type === 'room_joined') {
+        self.myRoom = msg.room
       }
       else {
         console.log('Unknown broadcast type');
@@ -118,27 +105,11 @@ export default {
     });
   },
   methods: {
-    radiusChange: function () {
-      this.radius = this.slider_radius;
-
-      // Update the users radius as he changes it
-      this.ws.send(
-          JSON.stringify({
-                radius: this.radius,
-                type: 'radius',
-              }
-          ));
-    },
-    mapDrag: function (arg) {
-      this.center = arg.latLng;
-      // Update the users location as he changes it
-      this.ws.send(
-          JSON.stringify({
-                lat: Number(this.center.lat().toFixed(3)),
-                lng: Number(this.center.lng().toFixed(3)),
-                type: 'location',
-              }
-          ));
+    getRoomGeo: function (room) {
+      return {
+        lat: room.Location.Lat,
+        lng: room.Location.Lng
+      }
     },
     stripHtml: function (html){
       var temporalDivElement = document.createElement("div");
@@ -158,19 +129,16 @@ export default {
     },
     join: function () {
       if (!this.username) {
-         this.join_error = 'Please ente r a username';
+        this.join_error = 'Please enter a username';
         return
       }
       this.username = this.stripHtml(this.username);
       this.joined = true;
 
-      // As soon as the user joins, initialize his initial geo data
+// As soon as the user joins, initialize his initial geo data
       this.ws.send(
           JSON.stringify({
                 username: this.username,
-                radius: this.radius,
-                lat: this.center.lat,
-                lng: this.center.lng,
                 type: 'register'
               }
           ));
