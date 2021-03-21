@@ -1,11 +1,12 @@
 <template>
   <div id="app">
-    <ChatApp />
+    <ChatAppV2 />
   </div>
 </template>
 
 <script>
 import ChatApp from "@/components/ChatApp";
+import ChatAppV2 from "@/components/ChatAppV2";
 import Vue from "vue";
 import * as VueGoogleMaps from "vue2-google-maps";
 import { maps_key } from "./keys";
@@ -20,7 +21,7 @@ Vue.use(VueGoogleMaps, {
 export default {
   name: 'App',
   components: {
-    ChatApp
+    ChatApp, ChatAppV2
   }
 }
 </script>

@@ -80,3 +80,12 @@ func (data *RoomStorage) GetAll() map[int]Room {
 	defer data.Unlock()
 	return (*data).items
 }
+
+func (data *RoomStorage) GetListAll() []Room {
+	var list []Room
+	all := data.GetAll()
+	for _, value := range all {
+		list = append(list, value)
+	}
+	return list
+}

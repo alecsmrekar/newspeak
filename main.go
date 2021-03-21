@@ -13,6 +13,7 @@ type OutgoingBroadcast struct {
 	Username string     `json:"username"`
 	Message  string     `json:"message"`
 	Room Room			`json:"room"`
+	RoomList map[int]Room		`json:"room_list"`
 }
 
 // The way we identify the user is modular
@@ -80,6 +81,14 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		detachClient(&clients_map, uuid)
 	}
 
+	// Test, create a sample room
+	sampleRoom := Room{
+		Name:     "Test Room #1",
+		Location: GeoLocation{45, -70},
+	}
+	roomStorage.RegisterRoom(&sampleRoom)
+
+
 	for {
 		var msg IncomingMessage
 		// Read in a new message as JSON and map it to a Message object
@@ -121,6 +130,12 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			strategy := &register{}
 			strategy.update(&user, UserPayload{message: msg})
 			clients_map.Set(uuid, user)
+			// Reply to the user with a list of all rooms
+			reply := OutgoingBroadcast{
+				Type:     "room_list",
+				RoomList:     roomStorage.GetAll(),
+			}
+			sendBroadcast(ws, reply)
 		default:
 			log.Println("Unknown communication type")
 			detachClient(&clients_map, ws)
