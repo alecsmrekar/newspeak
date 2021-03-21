@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
+	"math/rand"
 	"net/http"
 )
 
@@ -73,7 +75,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	attachClient(&clients_map, ws)
 
 	var uuid UserUUID = ws
-	var usersCurrentRoomID int = -1
+	var usersCurrentRoomID = -1
 	user, found := clients_map.Get(uuid)
 	if !found {
 		log.Println("Error adding client to client map")
@@ -82,11 +84,17 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Test, create a sample room
-	sampleRoom := Room{
-		Name:     "Test Room #1",
-		Location: GeoLocation{45, -70},
+	for i := 0; i < 20; i++ {
+		nr := rand.Intn(50000)
+		c1 := coordinate(rand.Intn(80))
+		c2 := coordinate(rand.Intn(80))
+
+		sampleRoom := Room{
+			Name:     fmt.Sprintf("Room %v", nr),
+			Location: GeoLocation{c1, c2},
+		}
+		roomStorage.RegisterRoom(&sampleRoom)
 	}
-	roomStorage.RegisterRoom(&sampleRoom)
 
 
 	for {
@@ -98,6 +106,9 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			detachClient(&clients_map, ws)
 			break
 		}
+
+		// TODO: when sending the rooms to frontend, omit the members property and only send nr of members
+		// Create a new class which in an adapter for the full Room class
 
 		switch msg.MsgType {
 		case "message":
