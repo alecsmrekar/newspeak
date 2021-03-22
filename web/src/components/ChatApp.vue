@@ -37,7 +37,7 @@
 
 
     <br>
-    <div>
+    <div v-if="joined">
       <gmap-map
           :center="startingCenter"
           :zoom="3"
@@ -47,12 +47,18 @@ streetViewControl: false,
 fullscreenControl: false,
 }"
       >
+        <GmapCluster
+            :position="center" :clickable="true" :animation="2"
+        >
         <gmap-marker v-for="(item, key) in allRooms"
                      :key="key"
-                     :label="item.Name"
+                     :label="getJoinText(item.Name)"
             :position="getRoomGeo(item)"
             :draggable="false"
+                     :clickable="true"
+                     @click="toggleInfo(item, key)"
         ></gmap-marker>
+        </GmapCluster>
       </gmap-map>
     </div>
 
@@ -75,6 +81,7 @@ TODO
   7. open the regular map
  */
 
+
 export default {
   components: {},
   name: 'ChatApp',
@@ -88,7 +95,7 @@ export default {
       startingCenter: { lat: 45.508, lng: -73.587 },
       join_error: '',
       allRooms: {},
-      myRoom: null
+      myRoom: null,
     }
   },
   mounted() {
@@ -108,7 +115,6 @@ export default {
       }
       else if (msg.type === 'room_list') {
         self.allRooms = msg.room_list;
-        console.log('all rooms:', self.allRooms)
       }
       else if (msg.type === 'room_joined') {
         self.myRoom = msg.room
@@ -119,6 +125,15 @@ export default {
     });
   },
   methods: {
+    getJoinText(roomName) {
+      return 'Join ' + roomName
+    },
+    toggleInfo: function (marker) {
+      this.joinRoom(marker)
+    },
+    joinRoom: function (room) {
+      console.log('Implement room join', room);
+    },
     getRoomGeo: function (room) {
       return {
         lat: room.Location.Lat,
@@ -148,8 +163,6 @@ export default {
       }
       this.username = this.stripHtml(this.username);
       this.joined = true;
-
-// As soon as the user joins, initialize his initial geo data
       this.ws.send(
           JSON.stringify({
                 username: this.username,

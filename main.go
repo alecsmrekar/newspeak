@@ -87,7 +87,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Test, create a sample room
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 2000; i++ {
 		nr := rand.Intn(50000)
 		c1 := coordinate(rand.Intn(80))
 		c2 := coordinate(rand.Intn(80))
