@@ -7,6 +7,7 @@ import (
 type User struct {
 	username string
 	connectionKey *websocket.Conn
+	currentRoom int
 }
 
 // User Update Interface - Strategy Pattern
@@ -21,4 +22,15 @@ type register struct {
 
 func (l *register) update(user *User, data UserPayload) {
 	user.username = data.message.Username
+	user.currentRoom = -1
+}
+
+func leaveRoom(id UserUUID) {
+	user, ok := clients_map.Get(id)
+	if !ok {
+		return
+	}
+	if user.currentRoom > -1 {
+		roomStorage.RemoveMember(user.currentRoom, user.connectionKey)
+	}
 }

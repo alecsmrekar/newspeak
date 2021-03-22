@@ -42,6 +42,7 @@ type GeoLocation struct {
 var roomNotificationQueue = make(chan Room, 1000)
 var roomStorage = RoomStorage{items: make(map[int]Room)}
 var clients_map = ClientsMap{items: make(map[UserUUID]User)}
+var lobby = ClientsMap{items: make(map[UserUUID]User)} // This can be converted into an array
 var broadcast = make(chan OutgoingBroadcast)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -60,8 +61,10 @@ func attachClient (clients *ClientsMap, connectionKey UserUUID) {
 	})
 }
 
-func detachClient (clients *ClientsMap, connectionKey UserUUID) {
-	clients.Delete(connectionKey)
+func detachClient (clients *ClientsMap, id UserUUID) {
+	leaveRoom(id)
+	//TODO notify room members
+	clients.Delete(id)
 }
 
 // A thread that handles one client's communications
@@ -102,49 +105,70 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		// Read in a new message as JSON and map it to a Message object
 		err := ws.ReadJSON(&msg)
 		if err != nil {
+			leaveRoom(uuid)
 			log.Printf("error: %v", err)
 			detachClient(&clients_map, ws)
 			break
 		}
 
-		// TODO: when sending the rooms to frontend, omit the members property and only send nr of members
-		// Create a new class which in an adapter for the full Room class
-
 		switch msg.MsgType {
 		case "message":
+			// Send msg to room
 			broadcast <- OutgoingBroadcast{
 				Type: "message",
 				Message:  msg.Message,
 				Username: user.username,
 			}
 		case "create_room":
+			// Create room
+			// Remove user from lobby
+			// Add him to the room
 			createdRoom := createRoom(msg.RoomName, msg.Lat, msg.Lng)
 			createdRoom.addMember(uuid)
+			lobby.Delete(uuid)
 			usersCurrentRoomID = createdRoom.ID
 			reply := OutgoingBroadcast{
-				Type:     "room_joined",
-				Room:     createdRoom,
+				Type:     "joined_room",
+				Room:     createdRoom.getRoomWithMembers(),
 			}
 			sendBroadcast(ws, reply)
 			roomNotificationQueue <- createdRoom
 		case "join_room":
+			// Remove user from lobby
+			// Add him to the room
+			// to all room members: send them list of members
 			if usersCurrentRoomID >= 0 {
 				roomStorage.RemoveMember(usersCurrentRoomID, uuid)
+			} else {
+				lobby.Delete(uuid)
 			}
 			joinedRoom := roomStorage.AddMember(msg.RoomID, uuid)
 			reply := OutgoingBroadcast{
-				Type:     "room_joined",
-				Room:     joinedRoom,
+				Type:     "room_status",
+				Room:     joinedRoom.getRoomWithMembers(),
 			}
 			sendBroadcast(ws, reply)
 		case "register":
+			// Add him to table of users
+			// Send him a list of all rooms
 			strategy := &register{}
 			strategy.update(&user, UserPayload{message: msg})
 			clients_map.Set(uuid, user)
-			// Reply to the user with a list of all rooms
+			lobby.Set(uuid, user)
 			reply := OutgoingBroadcast{
 				Type:     "room_list",
-				RoomList:     roomStorage.GetAll(),
+				RoomList:     roomStorage.GetAllProxied(),
+			}
+			sendBroadcast(ws, reply)
+		case "leave_room":
+			// Leave room
+			// Add to lobby
+			// Send him a list of all rooms
+			leaveRoom(uuid)
+			lobby.Set(uuid, user)
+			reply := OutgoingBroadcast{
+				Type:     "room_list",
+				RoomList:     roomStorage.GetAllProxied(),
 			}
 			sendBroadcast(ws, reply)
 		default:

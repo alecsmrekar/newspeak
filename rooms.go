@@ -10,6 +10,8 @@ type Room struct {
 	Name string
 	Location GeoLocation
 	Members []UserUUID
+	MembersFull []User
+	MembersCount int
 }
 
 // Concurrency safe
@@ -31,6 +33,33 @@ func createRoom (name string, lat coordinate, lng coordinate) Room {
 // Add member to room
 func (room *Room) addMember (id UserUUID) {
 	*room = roomStorage.AddMember(room.ID, id)
+}
+
+// Get a lightweight version of the object
+func (room *Room) getRoomProxy () Room {
+	return Room{
+		ID:           room.ID,
+		Name:         room.Name,
+		Location:     room.Location,
+		MembersCount: len(room.Members),
+	}
+}
+
+// Get a lightweight version of the object
+func (room *Room) getRoomWithMembers () Room {
+	var members []User
+	for _, uuid  := range room.Members {
+		user, ok := clients_map.Get(uuid)
+		if ok {
+			members = append(members, user)
+		}
+	}
+	return Room{
+		ID:           room.ID,
+		Name:         room.Name,
+		Location:     room.Location,
+		MembersFull: members,
+	}
 }
 
 // Register new room
@@ -79,6 +108,22 @@ func (data *RoomStorage) GetAll() map[int]Room {
 	data.Lock()
 	defer data.Unlock()
 	return (*data).items
+}
+
+// Get all rooms
+func (data *RoomStorage) GetAllProxied() map[int]Room {
+	rooms := data.GetAll()
+	proxies := make(map[int]Room)
+	for id, room := range rooms {
+		proxy := Room{
+			ID:           room.ID,
+			Name:         room.Name,
+			Location:     room.Location,
+			MembersCount: len(room.Members),
+		}
+		proxies[id] = proxy
+	}
+	return proxies
 }
 
 func (data *RoomStorage) GetListAll() []Room {
