@@ -32,6 +32,23 @@ func (clients *ClientsMap) Get(id UserUUID) (User, bool) {
 	return value, ok
 }
 
+// Gets a key from the concurrent map  of clients
+func (clients *ClientsMap) AddUserToGroup(id UserUUID, room int) User {
+	clients.Lock()
+	defer clients.Unlock()
+	value, ok := clients.items[id]
+	if ok {
+		value.currentRoom = room
+		clients.items[id] = value
+	}
+	return value
+}
+
+// Gets a key from the concurrent map  of clients
+func (clients *ClientsMap) ResetUserGroup(id UserUUID) {
+	_ = clients.AddUserToGroup(id, -1)
+}
+
 
 // Iterates over the items in a concurrent map
 // Each item is sent over a channel, so that

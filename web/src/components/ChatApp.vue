@@ -37,7 +37,7 @@
 
 
     <br>
-    <div v-if="joined">
+    <div v-if="joined && show_map">
       <gmap-map
           :center="startingCenter"
           :zoom="3"
@@ -96,6 +96,7 @@ export default {
       join_error: '',
       allRooms: {},
       myRoom: null,
+      show_map: true,
     }
   },
   mounted() {
@@ -105,6 +106,7 @@ export default {
     this.ws = new WebSocket('ws://' + window.location.host + '/ws');
     this.ws.addEventListener('message', function(e) {
       var msg = JSON.parse(e.data);
+      console.log(msg);
       if (msg.type === 'message') {
         self.chatContent += '<div class="chip">'
             + msg.username
@@ -119,6 +121,9 @@ export default {
       else if (msg.type === 'room_joined') {
         self.myRoom = msg.room
       }
+      else if (msg.type === 'room_status') {
+        console.log('receiving user list', msg.room);
+      }
       else {
         console.log('Unknown broadcast type');
       }
@@ -132,7 +137,14 @@ export default {
       this.joinRoom(marker)
     },
     joinRoom: function (room) {
-      console.log('Implement room join', room);
+      this.ws.send(
+          JSON.stringify({
+                room_id: room.ID,
+                type: 'join_room'
+              }
+          ));
+      this.show_map = false;
+      this.chatContent += 'Joined Room ' + room.Name + '<br/>';
     },
     getRoomGeo: function (room) {
       return {

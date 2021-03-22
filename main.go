@@ -16,6 +16,7 @@ type OutgoingBroadcast struct {
 	Message  string     `json:"message"`
 	Room Room			`json:"room"`
 	RoomList map[int]Room		`json:"room_list"`
+	RoomID int 			`json:"room_id"`
 }
 
 // The way we identify the user is modular
@@ -87,7 +88,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Test, create a sample room
-	for i := 0; i < 2000; i++ {
+	for i := 0; i < 2; i++ {
 		nr := rand.Intn(50000)
 		c1 := coordinate(rand.Intn(80))
 		c2 := coordinate(rand.Intn(80))
@@ -118,6 +119,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				Type: "message",
 				Message:  msg.Message,
 				Username: user.username,
+				RoomID: user.currentRoom,
 			}
 		case "create_room":
 			// Create room
@@ -125,10 +127,11 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			// Add him to the room
 			createdRoom := createRoom(msg.RoomName, msg.Lat, msg.Lng)
 			createdRoom.addMember(uuid)
+			user = clients_map.AddUserToGroup(uuid, createdRoom.ID)
 			lobby.Delete(uuid)
 			usersCurrentRoomID = createdRoom.ID
 			reply := OutgoingBroadcast{
-				Type:     "joined_room",
+				Type:     "room_joined",
 				Room:     createdRoom.getRoomWithMembers(),
 			}
 			sendBroadcast(ws, reply)
@@ -143,6 +146,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				lobby.Delete(uuid)
 			}
 			joinedRoom := roomStorage.AddMember(msg.RoomID, uuid)
+			user = clients_map.AddUserToGroup(uuid, msg.RoomID)
 			reply := OutgoingBroadcast{
 				Type:     "room_status",
 				Room:     joinedRoom.getRoomWithMembers(),
@@ -185,8 +189,12 @@ func handleMessageBroadcasting() {
 		// grab next message from the broadcast channel
 		msg := <-broadcast
 		// send it out to every client that is currently connected
-		for user := range clients_map.Iter() {
-			sendBroadcast(user.connectionKey, msg)
+		room, ok := roomStorage.GetRoom(msg.RoomID)
+		room = room.getRoomWithMembers()
+		if ok {
+			for _, user := range room.MembersFull {
+				sendBroadcast(user.connectionKey, msg)
+			}
 		}
 	}
 }

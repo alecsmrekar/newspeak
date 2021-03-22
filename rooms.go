@@ -85,6 +85,7 @@ func (data *RoomStorage) AddMember(ID int, uid UserUUID) Room {
 	defer data.Unlock()
 	room := data.items[ID]
 	room.Members = append(room.Members, uid)
+	data.items[ID] = room
 	return room
 }
 
