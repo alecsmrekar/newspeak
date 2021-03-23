@@ -10,8 +10,6 @@ type User struct {
 	currentRoom int
 }
 
-
-
 // User Update Interface - Strategy Pattern
 type userUpdater interface {
 	update(user *User, data UserPayload)
@@ -26,8 +24,9 @@ func (l *register) update(user *User, data UserPayload) {
 	user.currentRoom = -1
 }
 
+// Removes a user from his current room
 func leaveRoom(id UserUUID) {
-	user, ok := clients_map.Get(id)
+	user, ok := clientsMap.Get(id)
 	if !ok {
 		return
 	}

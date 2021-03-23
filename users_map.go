@@ -17,7 +17,7 @@ func (clients *ClientsMap) Set(id UserUUID, value User) {
 	clients.items[id] = value
 }
 
-// Sets a key in the concurrent map of clients
+// Deletes a key in the concurrent map of clients
 func (clients *ClientsMap) Delete (id UserUUID) {
 	clients.Lock()
 	defer clients.Unlock()
@@ -32,6 +32,20 @@ func (clients *ClientsMap) Get(id UserUUID) (User, bool) {
 	return value, ok
 }
 
+// Returns a list of User objects based on user UUIDs
+func (clients *ClientsMap) LookupUserIDs(ids []UserUUID) []User {
+	clients.Lock()
+	defer clients.Unlock()
+	var users []User
+	for _, id := range ids {
+		value, ok := clients.items[id]
+		if ok {
+			users = append(users, value)
+		}
+	}
+	return users
+}
+
 // Gets a key from the concurrent map  of clients
 func (clients *ClientsMap) AddUserToGroup(id UserUUID, room int) User {
 	clients.Lock()
@@ -43,12 +57,6 @@ func (clients *ClientsMap) AddUserToGroup(id UserUUID, room int) User {
 	}
 	return value
 }
-
-// Gets a key from the concurrent map  of clients
-func (clients *ClientsMap) ResetUserGroup(id UserUUID) {
-	_ = clients.AddUserToGroup(id, -1)
-}
-
 
 // Iterates over the items in a concurrent map
 // Each item is sent over a channel, so that
