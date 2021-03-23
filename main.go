@@ -141,15 +141,16 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			user = clientsMap.AddUserToGroup(uuid, createdRoom.ID)
 			lobby.Delete(uuid)
 			roomNotificationQueue <- BroadcastRequest{
-				receivers: roomStorage.GetRoomMemberConnections(createdRoom.ID),
 				broadcast: OutgoingBroadcast{
 					Type:      "room_update",
 					Message:   fmt.Sprintf("%s joined", user.username),
 					RoomName:  createdRoom.Name,
 					RoomID:    createdRoom.ID,
-					RoomUsers: []string{user.username},
+					RoomUsers: getRoomMemberNames(createdRoom.ID),
 				},
+				receivers: roomStorage.GetRoomMemberConnections(createdRoom.ID),
 			}
+
 			// TODO notify lobby of new room
 		case "join_room":
 			// Remove user from lobby
@@ -258,12 +259,12 @@ func main() {
 	http.HandleFunc("/ws", handleConnections)
 
 	// Launch a few thread that send out messages
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 1; i++ {
 		go handleMessageBroadcasting()
 	}
 
 	// Launch a few thread that send out room notifications
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 1; i++ {
 		go handleRoomNotifications()
 	}
 

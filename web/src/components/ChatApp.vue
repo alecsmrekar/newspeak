@@ -8,6 +8,11 @@
         </div>
       </div>
     </div>
+    <div v-if="myRoom != ''">My Room: {{myRoom}}</div>
+    <div v-if="myRoom != ''"><button @click="leave">LEAVE NOW</button></div>
+    <div v-if="myRoom == '' && show_map"><button @click="createNewStart">CREATE NEW</button></div>
+    <div v-if="newMarkerState == 1"><input v-model="newRoomName"></div>
+    <div v-if="newMarkerState == 1"><button @click="createNewDone">Create</button></div>
 
 
     <div class="row row-write" v-if="joined">
@@ -39,7 +44,8 @@
     <br>
     <div v-if="joined && show_map">
       <gmap-map
-          :center="startingCenter"
+          :center="mapCenterStart"
+          @center_changed="dragMap"
           :zoom="3"
           style="width:100%;  height: 400px;"
           :options="{
@@ -58,6 +64,15 @@ fullscreenControl: false,
                      :clickable="true"
                      @click="toggleInfo(item, key)"
         ></gmap-marker>
+          <div v-if="newMarkerState==1">
+          <gmap-marker class="new-room-marker"
+                       :key="newMarkerId"
+                       :label="newMarkerLabel"
+                       :position="newMarkerPos"
+                       :draggable="true"
+                       :clickable="true"
+                       @drag="updateNewMarkerCoords"
+          ></gmap-marker></div>
         </GmapCluster>
       </gmap-map>
     </div>
@@ -92,11 +107,17 @@ export default {
       chatContent: '', // A running list of chat messages displayed on the screen
       username: null, // Our username
       joined: false, // True if email and username have been filled in
-      startingCenter: { lat: 45.508, lng: -73.587 },
+      mapCenter: { lat: 45.508, lng: -73.587 },
+      mapCenterStart: { lat: 45.508, lng: -73.587 },
       join_error: '',
       allRooms: {},
-      myRoom: null,
+      newMarkerId: -1,
+      newMarkerLabel: 'Set Room Location',
+      newMarkerPos: {lat: 0, lng: 0},
+      newMarkerState: 0,
+      myRoom: '',
       show_map: true,
+      newRoomName: '',
       chat_users: []
     }
   },
@@ -118,9 +139,6 @@ export default {
       }
       else if (msg.type === 'room_list') {
         self.allRooms = msg.room_list;
-      }
-      else if (msg.type === 'join_room') {
-        self.myRoom = msg.room
       }
       else if (msg.type === 'room_update') {
         self.chat_users = msg.users;
@@ -149,6 +167,7 @@ export default {
               }
           ));
       this.show_map = false;
+      this.myRoom = room.Name;
     },
     getRoomGeo: function (room) {
       return {
@@ -172,6 +191,16 @@ export default {
         this.newMsg = '';
       }
     },
+    leave: function () {
+      this.myRoom = '';
+      this.show_map = true;
+      this.chatContent = '';
+      this.ws.send(
+          JSON.stringify({
+                type: 'leave_room',
+              }
+          ));
+    },
     join: function () {
       if (!this.username) {
         this.join_error = 'Please enter a username';
@@ -186,6 +215,36 @@ export default {
               }
           ));
     },
+    createNewStart: function () {
+      this.newMarkerPos = this.mapCenter;
+      this.newMarkerState = 1;
+      this.allRooms = {};
+    },
+    createNewDone: function () {
+      this.newMarkerState = 0;
+      this.ws.send(
+          JSON.stringify({
+                room_name: 'name',
+                lat: 1,
+                lng: 1,
+                type: 'create_room'
+              }
+          ));
+      this.show_map = false;
+      this.myRoom = this.newRoomName;
+    },
+    updateNewMarkerCoords: function (location) {
+      this.newMarkerPos = {
+        lat: location.latLng.lat(),
+        lng: location.latLng.lng(),
+      };
+    },
+    dragMap: function (center) {
+      this.mapCenter = {
+        lat: center.lat(),
+        lng: center.lng()
+      }
+    }
   },
 }
 </script>
