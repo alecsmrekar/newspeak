@@ -30,11 +30,6 @@ func createRoom (name string, lat coordinate, lng coordinate) Room {
 	return new
 }
 
-// Add member to room
-func (room *Room) addMember (id UserUUID) {
-	*room = roomStorage.AddMember(room.ID, id)
-}
-
 // Get a lightweight version of the object
 func (room *Room) getRoomProxy () Room {
 	return Room{
@@ -45,7 +40,6 @@ func (room *Room) getRoomProxy () Room {
 	}
 }
 
-// Get a lightweight version of the object
 func (room *Room) getRoomWithMembers () Room {
 	var members []User
 	for _, uuid  := range room.Members {

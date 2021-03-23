@@ -118,11 +118,14 @@ export default {
       else if (msg.type === 'room_list') {
         self.allRooms = msg.room_list;
       }
-      else if (msg.type === 'room_joined') {
+      else if (msg.type === 'join_room') {
         self.myRoom = msg.room
       }
-      else if (msg.type === 'room_status') {
+      else if (msg.type === 'room_update') {
         console.log('receiving user list', msg.room);
+        if (msg.message) {
+          self.chatContent += msg.message + '<br/>';
+        }
       }
       else {
         console.log('Unknown broadcast type');
@@ -144,7 +147,6 @@ export default {
               }
           ));
       this.show_map = false;
-      this.chatContent += 'Joined Room ' + room.Name + '<br/>';
     },
     getRoomGeo: function (room) {
       return {

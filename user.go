@@ -10,11 +10,12 @@ type User struct {
 	currentRoom int
 }
 
+
+
 // User Update Interface - Strategy Pattern
 type userUpdater interface {
 	update(user *User, data UserPayload)
 }
-
 
 // User updater - Register User
 type register struct {
