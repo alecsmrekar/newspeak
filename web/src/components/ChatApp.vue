@@ -97,6 +97,7 @@ export default {
       allRooms: {},
       myRoom: null,
       show_map: true,
+      chat_users: []
     }
   },
   mounted() {
@@ -122,7 +123,8 @@ export default {
         self.myRoom = msg.room
       }
       else if (msg.type === 'room_update') {
-        console.log('receiving user list', msg.room);
+        self.chat_users = msg.users;
+        console.log(self.chat_users);
         if (msg.message) {
           self.chatContent += msg.message + '<br/>';
         }

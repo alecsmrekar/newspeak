@@ -17,6 +17,7 @@ type OutgoingBroadcast struct {
 	Room Room			`json:"room"`
 	RoomList map[int]Room		`json:"room_list"`
 	RoomID int 			`json:"room_id"`
+	RoomUsers []string	`json:"users"`
 }
 
 // The way we identify the user is modular
@@ -167,7 +168,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				Message:  fmt.Sprintf("%s joined", user.username),
 				RoomID:   joinedRoom.ID,
 				Room:	joinedRoom.getRoomWithMembers(),
-
 			}
 			fmt.Println("1")
 		case "register":
@@ -231,6 +231,10 @@ func handleRoomNotifications() {
 	for {
 		// grab next room from the queue
 		msg := <-roomNotificationQueue
+		for _, user := range msg.Room.MembersFull {
+			msg.RoomUsers = append(msg.RoomUsers, user.username)
+		}
+		// TODO sanitize output, don't send WS ids
 		// Notify all connected clients
 		for _, user := range msg.Room.MembersFull {
 			sendBroadcast(user.connectionKey, msg)
