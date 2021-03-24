@@ -84,8 +84,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	attachClient(&clientsMap, ws)
 
 	var uuid UserUUID = ws
-	var usersCurrentRoomID = -1
-	user, found := clientsMap.Get(uuid)
+	_, found := clientsMap.Get(uuid)
 	if !found {
 		log.Println("Error adding client to client map")
 		ws.Close()
@@ -93,7 +92,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Test, create a sample room
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 5; i++ {
 		nr := rand.Intn(50000)
 		c1 := coordinate(rand.Intn(80))
 		c2 := coordinate(rand.Intn(80))
@@ -117,105 +116,20 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
+		manager := CommunicationsManager{msg, uuid}
+
 		switch msg.MsgType {
 		case "message":
 			// Send msg to room
-			user, ok := clientsMap.Get(uuid)
-			if ok {
-				broadcast <- BroadcastRequest{
-					broadcast: OutgoingBroadcast{
-						Type:      "message",
-						Message:  msg.Message,
-						Username: user.username,
-						RoomID:    user.currentRoom,
-					},
-					receivers: roomStorage.GetRoomMemberConnections(user.currentRoom),
-				}
-			}
+			manager.sendMsg()
 		case "create_room":
-			// Create room
-			// Remove user from lobby
-			// Add him to the room
-			createdRoom := createRoom(msg.RoomName, msg.Lat, msg.Lng)
-			createdRoom = roomStorage.AddMember(createdRoom.ID, uuid)
-			user = clientsMap.AddUserToGroup(uuid, createdRoom.ID)
-			lobby.Delete(uuid)
-			roomNotificationQueue <- BroadcastRequest{
-				broadcast: OutgoingBroadcast{
-					Type:      "room_update",
-					Message:   fmt.Sprintf("%s joined", user.username),
-					RoomName:  createdRoom.Name,
-					RoomID:    createdRoom.ID,
-					RoomUsers: getRoomMemberNames(createdRoom.ID),
-				},
-				receivers: roomStorage.GetRoomMemberConnections(createdRoom.ID),
-			}
-
-			roomNotificationQueue <- BroadcastRequest{
-				broadcast: OutgoingBroadcast{
-					Type:      "room_list",
-					RoomList: 	roomStorage.GetAllProxied(),
-				},
-				receivers: getLobbyUsersConnections(),
-			}
+			manager.createRoom()
 		case "join_room":
-			// Remove user from lobby
-			// Add him to the room
-			// to all room members: send them list of members
-			user, _ := clientsMap.Get(uuid)
-			if user.currentRoom >= 0 {
-				roomStorage.RemoveMember(usersCurrentRoomID, uuid)
-			} else {
-				lobby.Delete(uuid)
-			}
-			joinedRoom := roomStorage.AddMember(msg.RoomID, uuid)
-			user = clientsMap.AddUserToGroup(uuid, msg.RoomID)
-			roomNotificationQueue <- BroadcastRequest{
-				broadcast: OutgoingBroadcast{
-					Type:      "room_update",
-					Message:   fmt.Sprintf("%s joined", user.username),
-					RoomName:  joinedRoom.Name,
-					RoomID:    joinedRoom.ID,
-					RoomUsers: getRoomMemberNames(joinedRoom.ID),
-				},
-				receivers: roomStorage.GetRoomMemberConnections(joinedRoom.ID),
-			}
+			manager.joinRoom(msg.RoomID)
 		case "register":
-			// Add him to table of users
-			// Send him a list of all rooms
-			strategy := &register{}
-			strategy.update(&user, UserPayload{message: msg})
-			clientsMap.Set(uuid, user)
-			lobby.Set(uuid)
-			reply := OutgoingBroadcast{
-				Type:     "room_list",
-				RoomList:     roomStorage.GetAllProxied(),
-			}
-			sendBroadcast(ws, reply)
+			manager.register()
 		case "leave_room":
-			user, _ = clientsMap.Get(uuid)
-			currentRoomID := user.currentRoom
-			leaveRoom(uuid)
-			currentRoom, ok := roomStorage.GetRoom(currentRoomID)
-			user, _ = clientsMap.Get(uuid)
-			lobby.Set(uuid)
-			reply := OutgoingBroadcast{
-				Type:     "room_list",
-				RoomList:     roomStorage.GetAllProxied(),
-			}
-			sendBroadcast(ws, reply)
-			if ok {
-				roomNotificationQueue <- BroadcastRequest{
-					broadcast: OutgoingBroadcast{
-						Type:    "room_update",
-						Message: fmt.Sprintf("%s left", user.username),
-						RoomID:  currentRoomID,
-						RoomName: currentRoom.Name,
-						RoomUsers: getRoomMemberNames(currentRoomID),
-					},
-					receivers: roomStorage.GetRoomMemberConnections(currentRoomID),
-				}
-			}
+			manager.leaveRoom()
 		default:
 			log.Println("Unknown communication type")
 			detachClient(&clientsMap, ws)
@@ -265,12 +179,12 @@ func main() {
 	http.HandleFunc("/ws", handleConnections)
 
 	// Launch a few thread that send out messages
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		go handleMessageBroadcasting()
 	}
 
 	// Launch a few thread that send out room notifications
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 10; i++ {
 		go handleRoomNotifications()
 	}
 

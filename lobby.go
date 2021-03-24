@@ -17,7 +17,7 @@ func (cs *ConcurrentSlice) Set(id UserUUID) {
 	cs.items = append(cs.items, id)
 }
 
-// Appends an item to the concurrent slice
+// Remove a user from the lobby
 func (cs *ConcurrentSlice) Delete(uid UserUUID) {
 	cs.Lock()
 	defer cs.Unlock()

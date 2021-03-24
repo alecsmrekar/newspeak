@@ -10,7 +10,7 @@
     </div>
     <div v-if="myRoom != ''">My Room: {{myRoom}}</div>
     <div v-if="myRoom != ''"><button @click="leave">LEAVE NOW</button></div>
-    <div v-if="myRoom == '' && show_map"><button @click="createNewStart">CREATE NEW</button></div>
+    <div v-if="myRoom == '' && show_map && joined"><button @click="createNewStart">CREATE NEW</button></div>
     <div v-if="newMarkerState == 1"><input v-model="newRoomName"></div>
     <div v-if="newMarkerState == 1"><button @click="createNewDone">Create</button></div>
 
@@ -128,7 +128,6 @@ export default {
     this.ws = new WebSocket('ws://' + window.location.host + '/ws');
     this.ws.addEventListener('message', function(e) {
       var msg = JSON.parse(e.data);
-      console.log(msg);
       if (msg.type === 'message') {
         self.chatContent += '<div class="chip">'
             + msg.username
@@ -142,7 +141,6 @@ export default {
       }
       else if (msg.type === 'room_update') {
         self.chat_users = msg.users;
-        console.log(self.chat_users);
         if (msg.message) {
           self.chatContent += msg.message + '<br/>';
         }
@@ -224,9 +222,9 @@ export default {
       this.newMarkerState = 0;
       this.ws.send(
           JSON.stringify({
-                room_name: 'name',
-                lat: 1,
-                lng: 1,
+                room_name: this.newRoomName,
+                lat: this.newMarkerPos.lat,
+                lng: this.newMarkerPos.lng,
                 type: 'create_room'
               }
           ));

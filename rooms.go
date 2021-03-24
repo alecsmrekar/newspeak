@@ -64,10 +64,14 @@ func (data *RoomStorage) GetRoomMemberConnections(id int) ([]*websocket.Conn) {
 func (data *RoomStorage) AddMember(ID int, uid UserUUID) Room {
 	data.Lock()
 	defer data.Unlock()
-	room := data.items[ID]
-	room.Members = append(room.Members, uid)
-	data.items[ID] = room
-	return room
+	room, ok := data.items[ID]
+	if ok {
+		room.Members = append(room.Members, uid)
+		data.items[ID] = room
+		return data.items[ID]
+	}
+	var empty Room
+	return empty
 }
 
 // Remove member from room
