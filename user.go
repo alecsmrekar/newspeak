@@ -10,17 +10,8 @@ type User struct {
 	currentRoom int
 }
 
-// User Update Interface - Strategy Pattern
-type userUpdater interface {
-	update(user *User, data UserPayload)
-}
-
-// User updater - Register User
-type register struct {
-}
-
-func (l *register) update(user *User, data UserPayload) {
-	user.username = data.message.Username
+func initUserData(user *User, username string) {
+	user.username = username
 	user.currentRoom = -1
 }
 

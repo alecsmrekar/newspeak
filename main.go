@@ -15,13 +15,13 @@ type BroadcastRequest struct {
 
 // Represents an outgoing chat message
 type OutgoingBroadcast struct {
-	Type string			`json:"type"`
-	Username string     `json:"username"`
-	Message  string     `json:"message"`
-	RoomName string		`json:"room_name"`
-	RoomList map[int]Room		`json:"room_list"`
-	RoomID int 			`json:"room_id"`
-	RoomUsers []string	`json:"users"`
+	Type string				`json:"type"`
+	Username string     	`json:"username"`
+	Message  string     	`json:"message"`
+	RoomName string			`json:"room_name"`
+	RoomList map[int]Room	`json:"room_list"`
+	RoomID int 				`json:"room_id"`
+	RoomUsers []string		`json:"users"`
 }
 
 // The way we identify the user is modular
@@ -31,13 +31,13 @@ type coordinate float32
 
 // Represents an incoming communication
 type IncomingMessage struct {
-	RoomID 	int			`json:"room_id"`
+	RoomID 	int				`json:"room_id"`
 	RoomName 	string		`json:"room_name"`
-	Username string     `json:"username"`
-	Message  string     `json:"message"`
-	MsgType  string     `json:"type"`
-	Lat 	coordinate `json:"lat"`
-	Lng 	coordinate `json:"lng"`
+	Username string     	`json:"username"`
+	Message  string     	`json:"message"`
+	MsgType  string     	`json:"type"`
+	Lat 	coordinate 		`json:"lat"`
+	Lng 	coordinate 		`json:"lng"`
 }
 
 type GeoLocation struct {
@@ -56,11 +56,6 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// Class that is used to handle user data
-type UserPayload struct {
-	message IncomingMessage
-}
-
 func attachClient (clients *ClientsMap, connectionKey UserUUID) {
 	clients.Set(connectionKey, User{
 		connectionKey: connectionKey,
@@ -69,7 +64,6 @@ func attachClient (clients *ClientsMap, connectionKey UserUUID) {
 
 func detachClient (clients *ClientsMap, id UserUUID) {
 	leaveRoom(id)
-	//TODO notify room members
 	clients.Delete(id)
 }
 
@@ -125,7 +119,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		case "create_room":
 			manager.createRoom()
 		case "join_room":
-			manager.joinRoom(msg.RoomID)
+			manager.joinRoomProcess(msg.RoomID)
 		case "register":
 			manager.register()
 		case "leave_room":

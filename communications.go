@@ -28,7 +28,7 @@ func (info *CommunicationsManager) createRoom () {
 	createdRoom := createRoom(info.incomingMessage.RoomName, info.incomingMessage.Lat, info.incomingMessage.Lng)
 
 	// Add user to room
-	info.joinRoom(createdRoom.ID)
+	info.joinRoomProcess(createdRoom.ID)
 
 	// Notify lobby of new room
 	roomNotificationQueue <- BroadcastRequest{
@@ -40,16 +40,11 @@ func (info *CommunicationsManager) createRoom () {
 	}
 }
 
-func (info *CommunicationsManager) joinRoom (roomID int) {
+// Handle the incoming request to join a room
+func (info *CommunicationsManager) joinRoomProcess (roomID int) {
 	user, _ := clientsMap.Get(info.fromUser)
+	joinedRoom := info.doRoomJoin(roomID, &user)
 
-	if user.currentRoom >= 0 {
-		roomStorage.RemoveMember(user.currentRoom, info.fromUser)
-	} else {
-		lobby.Delete(info.fromUser)
-	}
-	joinedRoom := roomStorage.AddMember(roomID, info.fromUser)
-	user = clientsMap.AddUserToGroup(info.fromUser, roomID)
 	roomNotificationQueue <- BroadcastRequest{
 		broadcast: OutgoingBroadcast{
 			Type:      "room_update",
@@ -62,11 +57,23 @@ func (info *CommunicationsManager) joinRoom (roomID int) {
 	}
 }
 
+// Data logic for joining a room
+func (info *CommunicationsManager) doRoomJoin(roomID int, user *User) Room {
+	if user.currentRoom >= 0 {
+		roomStorage.RemoveMember(user.currentRoom, info.fromUser)
+	} else {
+		lobby.Delete(info.fromUser)
+	}
+	joinedRoom := roomStorage.AddMember(roomID, info.fromUser)
+	*user = clientsMap.AddUserToGroup(info.fromUser, roomID)
+	return joinedRoom
+}
+
+// Handle incoming request to register a username
 func (info *CommunicationsManager) register () {
 	user, ok := clientsMap.Get(info.fromUser)
 	if ok {
-		strategy := &register{}
-		strategy.update(&user, UserPayload{message: info.incomingMessage})
+		initUserData(&user, info.incomingMessage.Username)
 		clientsMap.Set(info.fromUser, user)
 		lobby.Set(info.fromUser)
 		reply := OutgoingBroadcast{
@@ -77,28 +84,28 @@ func (info *CommunicationsManager) register () {
 	}
 }
 
+// Handle incoming request to leave the room
 func (info *CommunicationsManager) leaveRoom () {
 	user, _ := clientsMap.Get(info.fromUser)
 	currentRoomID := user.currentRoom
 	leaveRoom(info.fromUser)
-	currentRoom, ok := roomStorage.GetRoom(currentRoomID)
-	user, _ = clientsMap.Get(info.fromUser)
 	lobby.Set(info.fromUser)
+
+
 	reply := OutgoingBroadcast{
 		Type:     "room_list",
 		RoomList:     roomStorage.GetAllProxied(),
 	}
+	user, _ = clientsMap.Get(info.fromUser)
 	sendBroadcast(user.connectionKey, reply)
-	if ok {
-		roomNotificationQueue <- BroadcastRequest{
-			broadcast: OutgoingBroadcast{
-				Type:    "room_update",
-				Message: fmt.Sprintf("%s left", user.username),
-				RoomID:  currentRoomID,
-				RoomName: currentRoom.Name,
-				RoomUsers: getRoomMemberNames(currentRoomID),
-			},
-			receivers: roomStorage.GetRoomMemberConnections(currentRoomID),
-		}
+
+	roomNotificationQueue <- BroadcastRequest{
+		broadcast: OutgoingBroadcast{
+			Type:    "room_update",
+			Message: fmt.Sprintf("%s left", user.username),
+			RoomUsers: getRoomMemberNames(currentRoomID),
+		},
+		receivers: roomStorage.GetRoomMemberConnections(currentRoomID),
 	}
+
 }
