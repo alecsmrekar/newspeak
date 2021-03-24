@@ -48,7 +48,7 @@ type GeoLocation struct {
 var roomNotificationQueue = make(chan BroadcastRequest, 1000)
 var roomStorage = RoomStorage{items: make(map[int]Room)}
 var clientsMap = ClientsMap{items: make(map[UserUUID]User)}
-var lobby = ClientsMap{items: make(map[UserUUID]User)} // This can be converted into an array
+var lobby = ConcurrentSlice{}
 var broadcast = make(chan BroadcastRequest)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -151,7 +151,13 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				receivers: roomStorage.GetRoomMemberConnections(createdRoom.ID),
 			}
 
-			// TODO notify lobby of new room
+			roomNotificationQueue <- BroadcastRequest{
+				broadcast: OutgoingBroadcast{
+					Type:      "room_list",
+					RoomList: 	roomStorage.GetAllProxied(),
+				},
+				receivers: getLobbyUsersConnections(),
+			}
 		case "join_room":
 			// Remove user from lobby
 			// Add him to the room
@@ -180,7 +186,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			strategy := &register{}
 			strategy.update(&user, UserPayload{message: msg})
 			clientsMap.Set(uuid, user)
-			lobby.Set(uuid, user)
+			lobby.Set(uuid)
 			reply := OutgoingBroadcast{
 				Type:     "room_list",
 				RoomList:     roomStorage.GetAllProxied(),
@@ -192,7 +198,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			leaveRoom(uuid)
 			currentRoom, ok := roomStorage.GetRoom(currentRoomID)
 			user, _ = clientsMap.Get(uuid)
-			lobby.Set(uuid, user)
+			lobby.Set(uuid)
 			reply := OutgoingBroadcast{
 				Type:     "room_list",
 				RoomList:     roomStorage.GetAllProxied(),

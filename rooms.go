@@ -71,9 +71,9 @@ func (data *RoomStorage) AddMember(ID int, uid UserUUID) Room {
 }
 
 // Remove member from room
-// If room is empty, also delete entire room
 func (data *RoomStorage) RemoveMember(ID int, member *websocket.Conn) {
 	data.Lock()
+	defer checkEmptyRoom(ID)
 	defer data.Unlock()
 	room := data.items[ID]
 	for index, user := range room.Members {
@@ -82,19 +82,31 @@ func (data *RoomStorage) RemoveMember(ID int, member *websocket.Conn) {
 			room.Members[len(room.Members)-1] = nil
 			room.Members = room.Members[:len(room.Members)-1]
 			data.items[ID] = room
-			if len(data.items[ID].Members) == 0 {
-				data.Delete(&room)
-			}
 			break
 		}
 	}
 }
 
-// Delete room
-func (data *RoomStorage) Delete(room *Room) {
+// If the room is empty, delete it and notify lobby
+func checkEmptyRoom(ID int) {
+	room, ok := roomStorage.GetRoom(ID)
+	if ok && len(room.Members) == 0 {
+		roomStorage.Delete(ID)
+
+		roomNotificationQueue <- BroadcastRequest{
+			broadcast: OutgoingBroadcast{
+				Type:      "room_list",
+				RoomList: 	roomStorage.GetAllProxied(),
+			},
+			receivers: getLobbyUsersConnections(),
+		}
+	}
+}
+
+func (data *RoomStorage) Delete(id int) {
 	data.Lock()
 	defer data.Unlock()
-	delete(data.items, room.ID)
+	delete(data.items, id)
 }
 
 // Get all rooms
@@ -137,4 +149,14 @@ func getRoomMemberNames (id int) []string {
 		names = append(names, user.username)
 	}
 	return names
+}
+
+func getLobbyUsersConnections () []*websocket.Conn {
+	var connections []*websocket.Conn
+	lobbyUsers := lobby.GetAll()
+	users := clientsMap.LookupUserIDs(lobbyUsers)
+	for _, user := range users {
+		connections = append(connections, user.connectionKey)
+	}
+	return connections
 }
