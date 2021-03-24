@@ -16,6 +16,7 @@
 
 
     <div class="row row-write" v-if="joined">
+      <div class="chat-text">
       <div class="input-field col s8">
         <input type="text" v-model="newMsg" @keyup.enter="send">
       </div>
@@ -24,6 +25,13 @@
           <i class="material-icons right">chat</i>
           Send
         </button>
+      </div>
+      </div>
+      <div class="users" style="clear: left" v-if="joined && myRoom != ''">
+        Room members:
+        <ul>
+          <li v-for="(usr) in chat_users" :key="usr.id">{{usr}}</li>
+        </ul>
       </div>
     </div>
 
@@ -126,6 +134,7 @@ export default {
       }
       else if (msg.type === 'room_update') {
         self.chat_users = msg.users;
+        console.log(self.chat_users);
         if (msg.message) {
           self.chatContent += msg.message + '<br/>';
         }
