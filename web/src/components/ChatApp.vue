@@ -81,21 +81,6 @@ fullscreenControl: false,
 </template>
 
 <script>
-/*
-TODO
-
-- there should not be too many markers on the map
-- the markers should show a join action and the number of active users
-- add a link for creating a new room:
-  1. it removes all other marker on map
-  2. it places a new marker which is draggable by the user
-  3. it shows a field for the room name
-  4. it shows a Save button
-  5. on submit, validate the name
-  6. after validation, send room to backend and open the chat
-  7. open the regular map
- */
-
 
 export default {
   components: {},

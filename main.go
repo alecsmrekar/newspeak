@@ -15,13 +15,13 @@ type BroadcastRequest struct {
 
 // Represents an outgoing chat message
 type OutgoingBroadcast struct {
-	Type string				`json:"type"`
-	Username string     	`json:"username"`
-	Message  string     	`json:"message"`
-	RoomName string			`json:"room_name"`
-	RoomList map[int]Room	`json:"room_list"`
-	RoomID int 				`json:"room_id"`
-	RoomUsers []string		`json:"users"`
+	Type      string       `json:"type"`
+	Username  string       `json:"username"`
+	Message   string       `json:"message"`
+	RoomName  string       `json:"room_name"`
+	RoomList  map[int]Room `json:"room_list"`
+	RoomID    int          `json:"room_id"`
+	RoomUsers []string     `json:"users"`
 }
 
 // The way we identify the user is modular
@@ -31,13 +31,13 @@ type coordinate float32
 
 // Represents an incoming communication
 type IncomingMessage struct {
-	RoomID 	int				`json:"room_id"`
-	RoomName 	string		`json:"room_name"`
-	Username string     	`json:"username"`
-	Message  string     	`json:"message"`
-	MsgType  string     	`json:"type"`
-	Lat 	coordinate 		`json:"lat"`
-	Lng 	coordinate 		`json:"lng"`
+	RoomID   int        `json:"room_id"`
+	RoomName string     `json:"room_name"`
+	Username string     `json:"username"`
+	Message  string     `json:"message"`
+	MsgType  string     `json:"type"`
+	Lat      coordinate `json:"lat"`
+	Lng      coordinate `json:"lng"`
 }
 
 type GeoLocation struct {
@@ -56,32 +56,32 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func attachClient (clients *ClientsMap, connectionKey UserUUID) {
+func attachClient(clients *ClientsMap, connectionKey UserUUID) {
 	clients.Set(connectionKey, User{
 		connectionKey: connectionKey,
 	})
 }
 
-func detachClient (clients *ClientsMap, id UserUUID) {
-	leaveRoom(id)
-	clients.Delete(id)
+func detachClient(clients *ClientsMap, uuid UserUUID) {
+	leaveRoom(uuid)
+	clients.Delete(uuid)
 }
 
 // A thread that handles one client's communications
 func handleConnections(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
+	connectionKey, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// ensure connection close when function returns
-	defer ws.Close()
-	attachClient(&clientsMap, ws)
+	defer connectionKey.Close()
+	attachClient(&clientsMap, connectionKey)
 
-	var uuid UserUUID = ws
+	var uuid UserUUID = connectionKey
 	_, found := clientsMap.Get(uuid)
 	if !found {
 		log.Println("Error adding client to client map")
-		ws.Close()
+		connectionKey.Close()
 		detachClient(&clientsMap, uuid)
 	}
 
@@ -98,15 +98,14 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		roomStorage.RegisterRoom(&sampleRoom)
 	}
 
-
 	for {
 		var msg IncomingMessage
 		// Read in a new message as JSON and map it to a Message object
-		err := ws.ReadJSON(&msg)
+		err := connectionKey.ReadJSON(&msg)
 		if err != nil {
 			leaveRoom(uuid)
 			log.Printf("error: %v", err)
-			detachClient(&clientsMap, ws)
+			detachClient(&clientsMap, connectionKey)
 			break
 		}
 
@@ -126,7 +125,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			manager.leaveRoom()
 		default:
 			log.Println("Unknown communication type")
-			detachClient(&clientsMap, ws)
+			detachClient(&clientsMap, connectionKey)
 			break
 		}
 	}

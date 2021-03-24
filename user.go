@@ -5,9 +5,9 @@ import (
 )
 
 type User struct {
-	username string
+	username      string
 	connectionKey *websocket.Conn
-	currentRoom int
+	currentRoom   int
 }
 
 func initUserData(user *User, username string) {
@@ -16,8 +16,8 @@ func initUserData(user *User, username string) {
 }
 
 // Removes a user from his current room
-func leaveRoom(id UserUUID) {
-	user, ok := clientsMap.Get(id)
+func leaveRoom(uuid UserUUID) {
+	user, ok := clientsMap.Get(uuid)
 	if !ok {
 		return
 	}

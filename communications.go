@@ -3,29 +3,29 @@ package main
 import "fmt"
 
 type CommunicationsManager struct {
-	incomingMessage IncomingMessage
-	fromUser UserUUID
+	IncomingMessage IncomingMessage
+	FromUser        UserUUID
 }
 
-func (info *CommunicationsManager) sendMsg () {
-	user, ok := clientsMap.Get(info.fromUser)
+func (info *CommunicationsManager) sendMsg() {
+	user, ok := clientsMap.Get(info.FromUser)
 	if ok {
 		broadcast <- BroadcastRequest{
 			broadcast: OutgoingBroadcast{
-				Type:      "message",
-				Message:  info.incomingMessage.Message,
+				Type:     "message",
+				Message:  info.IncomingMessage.Message,
 				Username: user.username,
-				RoomID:    user.currentRoom,
+				RoomID:   user.currentRoom,
 			},
 			receivers: roomStorage.GetRoomMemberConnections(user.currentRoom),
 		}
 	}
 }
 
-func (info *CommunicationsManager) createRoom () {
+func (info *CommunicationsManager) createRoom() {
 
 	// Init room and register in the storage
-	createdRoom := createRoom(info.incomingMessage.RoomName, info.incomingMessage.Lat, info.incomingMessage.Lng)
+	createdRoom := createRoom(info.IncomingMessage.RoomName, info.IncomingMessage.Lat, info.IncomingMessage.Lng)
 
 	// Add user to room
 	info.joinRoomProcess(createdRoom.ID)
@@ -33,16 +33,16 @@ func (info *CommunicationsManager) createRoom () {
 	// Notify lobby of new room
 	roomNotificationQueue <- BroadcastRequest{
 		broadcast: OutgoingBroadcast{
-			Type:      "room_list",
-			RoomList: 	roomStorage.GetAllProxied(),
+			Type:     "room_list",
+			RoomList: roomStorage.GetAllProxied(),
 		},
 		receivers: getLobbyUsersConnections(),
 	}
 }
 
 // Handle the incoming request to join a room
-func (info *CommunicationsManager) joinRoomProcess (roomID int) {
-	user, _ := clientsMap.Get(info.fromUser)
+func (info *CommunicationsManager) joinRoomProcess(roomID int) {
+	user, _ := clientsMap.Get(info.FromUser)
 	joinedRoom := info.doRoomJoin(roomID, &user)
 
 	roomNotificationQueue <- BroadcastRequest{
@@ -60,22 +60,22 @@ func (info *CommunicationsManager) joinRoomProcess (roomID int) {
 // Data logic for joining a room
 func (info *CommunicationsManager) doRoomJoin(roomID int, user *User) Room {
 	if user.currentRoom >= 0 {
-		roomStorage.RemoveMember(user.currentRoom, info.fromUser)
+		roomStorage.RemoveMember(user.currentRoom, info.FromUser)
 	} else {
-		lobby.Delete(info.fromUser)
+		lobby.Delete(info.FromUser)
 	}
-	joinedRoom := roomStorage.AddMember(roomID, info.fromUser)
-	*user = clientsMap.AddUserToGroup(info.fromUser, roomID)
+	joinedRoom := roomStorage.AddMember(roomID, info.FromUser)
+	*user = clientsMap.AddUserToGroup(info.FromUser, roomID)
 	return joinedRoom
 }
 
 // Handle incoming request to register a username
-func (info *CommunicationsManager) register () {
-	user, ok := clientsMap.Get(info.fromUser)
+func (info *CommunicationsManager) register() {
+	user, ok := clientsMap.Get(info.FromUser)
 	if ok {
-		initUserData(&user, info.incomingMessage.Username)
-		clientsMap.Set(info.fromUser, user)
-		lobby.Set(info.fromUser)
+		initUserData(&user, info.IncomingMessage.Username)
+		clientsMap.Set(info.FromUser, user)
+		lobby.Set(info.FromUser)
 		reply := OutgoingBroadcast{
 			Type:     "room_list",
 			RoomList: roomStorage.GetAllProxied(),
@@ -85,24 +85,23 @@ func (info *CommunicationsManager) register () {
 }
 
 // Handle incoming request to leave the room
-func (info *CommunicationsManager) leaveRoom () {
-	user, _ := clientsMap.Get(info.fromUser)
+func (info *CommunicationsManager) leaveRoom() {
+	user, _ := clientsMap.Get(info.FromUser)
 	currentRoomID := user.currentRoom
-	leaveRoom(info.fromUser)
-	lobby.Set(info.fromUser)
-
+	leaveRoom(info.FromUser)
+	lobby.Set(info.FromUser)
 
 	reply := OutgoingBroadcast{
 		Type:     "room_list",
-		RoomList:     roomStorage.GetAllProxied(),
+		RoomList: roomStorage.GetAllProxied(),
 	}
-	user, _ = clientsMap.Get(info.fromUser)
+	user, _ = clientsMap.Get(info.FromUser)
 	sendBroadcast(user.connectionKey, reply)
 
 	roomNotificationQueue <- BroadcastRequest{
 		broadcast: OutgoingBroadcast{
-			Type:    "room_update",
-			Message: fmt.Sprintf("%s left", user.username),
+			Type:      "room_update",
+			Message:   fmt.Sprintf("%s left", user.username),
 			RoomUsers: getRoomMemberNames(currentRoomID),
 		},
 		receivers: roomStorage.GetRoomMemberConnections(currentRoomID),
