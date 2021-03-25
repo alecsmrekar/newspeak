@@ -1,6 +1,13 @@
 <template>
   <div>
-    <div class="row row-msg">
+    <div class="controls">
+      <div class="room-name-display" v-if="myRoom != ''">My Room: {{myRoom}}</div>
+      <div class="room-name-block" v-if="newMarkerState == 1"><label>Pick a name: <input v-model="newRoomName"></div>
+      <a v-if="joined && myRoom== '' && newMarkerState==0" @click="createNewStart" class="right btn-floating btn-large waves-effect waves-light red"><i class="material-icons">add</i></a>
+      <a v-if="joined && myRoom== '' && newMarkerState==1" @click="createNewDone" class="right btn-floating btn-large waves-effect waves-light red"><i class="material-icons">check</i></a>
+      <a v-if="joined && myRoom != ''" @click="leave" class="right btn-floating btn-large waves-effect waves-light red"><i class="material-icons">clear</i></a>
+    </div>
+    <div class="row row-msg" v-if="joined && myRoom != ''">
       <div class="col s12">
         <div class="card horizontal">
           <div id="chat-messages" class="card-content" v-html="chatContent">
@@ -8,14 +15,8 @@
         </div>
       </div>
     </div>
-    <div v-if="myRoom != ''">My Room: {{myRoom}}</div>
-    <div v-if="myRoom != ''"><button @click="leave">LEAVE NOW</button></div>
-    <div v-if="myRoom == '' && show_map && joined"><button @click="createNewStart">CREATE NEW</button></div>
-    <div v-if="newMarkerState == 1"><input v-model="newRoomName"></div>
-    <div v-if="newMarkerState == 1"><button @click="createNewDone">Create</button></div>
 
-
-    <div class="row row-write" v-if="joined">
+    <div class="row row-write" v-if="joined && myRoom != ''">
       <div class="chat-text">
       <div class="input-field col s8">
         <input type="text" v-model="newMsg" @keyup.enter="send">
