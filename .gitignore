@@ -1,3 +1,2 @@
 .idea
-web/src/keys.js
-exec
+src/web/src/keys.js

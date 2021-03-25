@@ -1,4 +1,4 @@
-module alecsmrekar.github.io/newspeak
+module newspeak
 
 go 1.16
 
