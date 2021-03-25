@@ -9,6 +9,7 @@ import (
 type Room struct {
 	ID int
 	Name string
+	NameSuffix string
 	Location GeoLocation
 	Members []UserUUID
 }
@@ -127,7 +128,8 @@ func (data *RoomStorage) GetAllProxied() map[int]Room {
 	for id, room := range rooms {
 		proxy := Room{
 			ID:           room.ID,
-			Name:         fmt.Sprintf("%s (%v online)", room.Name,len(room.Members)),
+			Name:         room.Name,
+			NameSuffix:	  fmt.Sprintf("%v online", len(room.Members)),
 			Location:     room.Location,
 		}
 		proxies[id] = proxy

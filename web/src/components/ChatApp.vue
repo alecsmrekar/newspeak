@@ -66,11 +66,11 @@ fullscreenControl: false,
         >
         <gmap-marker v-for="(item, key) in allRooms"
                      :key="key"
-                     :label="getJoinText(item.Name)"
+                     :label="getJoinText(item)"
             :position="getRoomGeo(item)"
             :draggable="false"
                      :clickable="true"
-                     @click="toggleInfo(item, key)"
+                     @click="clickedJoinRoom(item, key)"
         ></gmap-marker>
           <div v-if="newMarkerState==1">
           <gmap-marker class="new-room-marker"
@@ -145,10 +145,13 @@ export default {
     });
   },
   methods: {
-    getJoinText(roomName) {
-      return 'Join ' + roomName
+    getJoinText(room) {
+      if (room.NameSuffix !== undefined) {
+        return room.Name + ' (' + room.NameSuffix + ')'
+      }
+      return room.Name
     },
-    toggleInfo: function (marker) {
+    clickedJoinRoom: function (marker) {
       this.joinRoom(marker)
     },
     joinRoom: function (room) {

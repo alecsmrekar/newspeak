@@ -85,7 +85,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		detachClient(&clientsMap, uuid)
 	}
 
-	// Test, create a sample room
+	// ****** Test data: create some sample rooms
 	for i := 0; i < 5; i++ {
 		nr := rand.Intn(50000)
 		c1 := coordinate(rand.Intn(80))
@@ -97,6 +97,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		}
 		roomStorage.RegisterRoom(&sampleRoom)
 	}
+	// *****
 
 	for {
 		var msg IncomingMessage
@@ -133,25 +134,24 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 // Receives messages from the broadcast channel and sends them out
 func handleMessageBroadcasting() {
-	for {
-		// grab next message from the broadcast channel
-		request := <-broadcast
-		for _, user := range request.receivers {
-			sendBroadcast(user, request.broadcast)
-		}
-
-	}
+	dispatchBroadcast(broadcast)
 }
 
 // Receives newly created rooms and and notifies clients
 func handleRoomNotifications() {
+	dispatchBroadcast(roomNotificationQueue)
+}
+
+// Dispatches broadcasts from a selected channel
+func dispatchBroadcast (chn chan BroadcastRequest) {
 	for {
-		request := <-roomNotificationQueue
+		request := <-chn
 		for _, user := range request.receivers {
 			sendBroadcast(user, request.broadcast)
 		}
 	}
 }
+
 
 // Send a message to a single user
 func sendBroadcast(client *websocket.Conn, msg OutgoingBroadcast) {
@@ -172,12 +172,12 @@ func main() {
 	http.HandleFunc("/ws", handleConnections)
 
 	// Launch a few thread that send out messages
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		go handleMessageBroadcasting()
 	}
 
 	// Launch a few thread that send out room notifications
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		go handleRoomNotifications()
 	}
 

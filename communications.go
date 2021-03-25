@@ -7,6 +7,7 @@ type CommunicationsManager struct {
 	FromUser        UserUUID
 }
 
+// Send a message into a room
 func (info *CommunicationsManager) sendMsg() {
 	user, ok := clientsMap.Get(info.FromUser)
 	if ok {
@@ -22,6 +23,8 @@ func (info *CommunicationsManager) sendMsg() {
 	}
 }
 
+
+// Manages room creations and notifications
 func (info *CommunicationsManager) createRoom() {
 
 	// Init room and register in the storage
