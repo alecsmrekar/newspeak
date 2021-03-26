@@ -165,7 +165,7 @@ func sendBroadcast(client *websocket.Conn, msg OutgoingBroadcast) {
 
 func main() {
 
-	fs := http.FileServer(http.Dir("./src/web/dist"))
+	fs := http.FileServer(http.Dir("./web/dist"))
 	http.Handle("/", fs)
 
 	// the function will launch a new goroutine for each request

@@ -2,6 +2,10 @@ body {
     height: 100vh;
 }
 
+.nav-wrapper {
+    background-color: #26a69a;
+}
+
 main {
     height: 100%;
     display: flex;
@@ -45,6 +49,7 @@ footer.page-footer {
     position: relative;
     height: 100px;
     margin-top: -100px;
+    background-color: #26a69a;
 }
 
 
@@ -53,8 +58,15 @@ element.style {
     left: 0;
 }
 .controls {
-    min-height: 50px;
-    padding: 5px;
+    min-height: 80px;
+}
+
+.controls button {
+    margin-top: 20px;
+}
+
+.controls .input-field {
+    margin-left: 20px;
 }
 
 .room-name-block {
@@ -65,4 +77,16 @@ element.style {
 .room-name-display {
     display: inline-block;
     max-width: 50%;
+    margin-top: 25px;
+    font-size: 20px;
+}
+
+.gmap-map {
+    width:100%;
+    height: 400px;
+}
+
+.users {
+    flex-grow: 1;
+    margin-left: 12px;
 }

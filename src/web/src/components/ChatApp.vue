@@ -1,11 +1,22 @@
 <template>
   <div>
-    <div class="controls">
+    <div class="controls" v-if="joined">
       <div class="room-name-display" v-if="myRoom != ''">My Room: {{myRoom}}</div>
-      <div class="room-name-block" v-if="newMarkerState == 1"><label>Pick a name: <input v-model="newRoomName"></div>
-      <a v-if="joined && myRoom== '' && newMarkerState==0" @click="createNewStart" class="right btn-floating btn-large waves-effect waves-light red"><i class="material-icons">add</i></a>
-      <a v-if="joined && myRoom== '' && newMarkerState==1" @click="createNewDone" class="right btn-floating btn-large waves-effect waves-light red"><i class="material-icons">check</i></a>
-      <a v-if="joined && myRoom != ''" @click="leave" class="right btn-floating btn-large waves-effect waves-light red"><i class="material-icons">clear</i></a>
+
+      <div v-if="newMarkerState == 1" class="input-field inline">
+        <input v-model="newRoomName" id="room_name_inline" type="text" class="validate">
+        <label for="room_name_inline">Pick a name:</label>
+      </div>
+
+      <button v-if="joined && myRoom== '' && newMarkerState==0" @click="createNewStart" class="left btn waves-effect waves-light" type="submit" name="action">New Room
+        <i class="material-icons">add</i>
+      </button>
+      <button v-if="joined && myRoom== '' && newMarkerState==1" @click="createNewDone" class="left btn waves-effect waves-light" type="submit" name="action">OK
+        <i class="material-icons">send</i>
+      </button>
+      <button v-if="joined && myRoom != ''" @click="leave" class="right btn waves-effect waves-light" type="submit" name="action">Leave
+        <i class="material-icons">clear</i>
+      </button>
     </div>
     <div class="row row-msg" v-if="joined && myRoom != ''">
       <div class="col s12">
@@ -28,12 +39,13 @@
         </button>
       </div>
       </div>
-      <div class="users" style="clear: left" v-if="joined && myRoom != ''">
-        Room members:
-        <ul>
-          <li v-for="(usr) in chat_users" :key="usr.id">{{usr}}</li>
-        </ul>
-      </div>
+    </div>
+
+    <div class="users" v-if="joined && myRoom != ''">
+      <ul class="collection with-header">
+        <li class="collection-header"><h4>Connected users</h4></li>
+        <li class="collection-item" v-for="(usr) in chat_users" :key="usr.id">{{usr}}</li>
+      </ul>
     </div>
 
     <div class="row" v-if="!joined">
@@ -48,19 +60,15 @@
         </button>
       </div>
     </div>
-
-
-    <br>
     <div v-if="joined && show_map">
-      <gmap-map
+      <gmap-map class="gmap-map"
           :center="mapCenterStart"
           @center_changed="dragMap"
           :zoom="3"
-          style="width:100%;  height: 400px;"
           :options="{
-streetViewControl: false,
-fullscreenControl: false,
-}"
+            streetViewControl: false,
+            fullscreenControl: false,
+          }"
       >
         <GmapCluster
             :position="center" :clickable="true" :animation="2"
@@ -68,8 +76,8 @@ fullscreenControl: false,
         <gmap-marker v-for="(item, key) in allRooms"
                      :key="key"
                      :label="getJoinText(item)"
-            :position="getRoomGeo(item)"
-            :draggable="false"
+                    :position="getRoomGeo(item)"
+                    :draggable="false"
                      :clickable="true"
                      @click="clickedJoinRoom(item, key)"
         ></gmap-marker>
@@ -115,8 +123,7 @@ export default {
       chat_users: []
     }
   },
-  mounted() {
-  },
+  mounted() {},
   created: function() {
     var self = this;
     this.ws = new WebSocket('ws://' + window.location.host + '/ws');
@@ -145,6 +152,7 @@ export default {
       }
     });
   },
+
   methods: {
     getJoinText(room) {
       if (room.NameSuffix !== undefined) {
@@ -228,6 +236,7 @@ export default {
           ));
       this.show_map = false;
       this.myRoom = this.newRoomName;
+      this.newRoomName = '';
     },
     updateNewMarkerCoords: function (location) {
       this.newMarkerPos = {
