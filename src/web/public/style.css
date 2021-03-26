@@ -1,9 +1,10 @@
 body {
+    background-color: #f7f8f3;
     height: 100vh;
 }
 
 .nav-wrapper {
-    background-color: #26a69a;
+    background-color: #002C3E;
 }
 
 main {
@@ -49,7 +50,7 @@ footer.page-footer {
     position: relative;
     height: 100px;
     margin-top: -100px;
-    background-color: #26a69a;
+    background-color: #002C3E;
 }
 
 
@@ -61,12 +62,19 @@ element.style {
     min-height: 80px;
 }
 
-.controls button {
-    margin-top: 20px;
+.controls .input-field {
+    margin-top:0;
+    margin-left: 20px;
+    margin-right:20px;
 }
 
-.controls .input-field {
-    margin-left: 20px;
+.confirm-creation {
+    position: absolute;
+}
+
+.controls div {
+    margin-top: 20px;
+    display: inline-block;
 }
 
 .room-name-block {
@@ -89,4 +97,8 @@ element.style {
 .users {
     flex-grow: 1;
     margin-left: 12px;
+}
+
+.btn {
+    background-color: #f7444e;
 }

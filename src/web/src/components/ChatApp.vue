@@ -3,20 +3,24 @@
     <div class="controls" v-if="joined">
       <div class="room-name-display" v-if="myRoom != ''">My Room: {{myRoom}}</div>
 
-      <div v-if="newMarkerState == 1" class="input-field inline">
-        <input v-model="newRoomName" id="room_name_inline" type="text" class="validate">
+      <div v-if="newMarkerState == 1">
+      <div class="input-field inline">
         <label for="room_name_inline">Pick a name:</label>
+        <input v-model="newRoomName" id="room_name_inline" type="text" class="validate">
+      </div>
+        <button @click="createNewDone" class="confirm-creation btn waves-effect waves-light" type="submit" name="action">
+          <i class="material-icons">send</i>
+        </button>
       </div>
 
-      <button v-if="joined && myRoom== '' && newMarkerState==0" @click="createNewStart" class="left btn waves-effect waves-light" type="submit" name="action">New Room
-        <i class="material-icons">add</i>
-      </button>
-      <button v-if="joined && myRoom== '' && newMarkerState==1" @click="createNewDone" class="left btn waves-effect waves-light" type="submit" name="action">OK
-        <i class="material-icons">send</i>
-      </button>
-      <button v-if="joined && myRoom != ''" @click="leave" class="right btn waves-effect waves-light" type="submit" name="action">Leave
-        <i class="material-icons">clear</i>
-      </button>
+      <div v-if="joined && myRoom== '' && newMarkerState==0">
+        <button @click="createNewStart" class="left btn waves-effect waves-light" type="submit" name="action">New Room
+        <i class="material-icons right">add</i>
+      </button></div>
+      <div v-if="joined && myRoom != ''" class="right">
+        <button @click="leave" class="right btn waves-effect waves-light" type="submit" name="action">
+        <i class="material-icons right">clear</i>Leave
+      </button></div>
     </div>
     <div class="row row-msg" v-if="joined && myRoom != ''">
       <div class="col s12">
