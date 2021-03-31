@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"sync"
 )
 
 type BroadcastRequest struct {
@@ -133,17 +134,18 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 // Receives messages from the broadcast channel and sends them out
-func handleMessageBroadcasting() {
-	dispatchBroadcast(broadcast)
+func handleMessageBroadcasting(wg *sync.WaitGroup) {
+	dispatchBroadcast(broadcast, wg)
 }
 
 // Receives newly created rooms and and notifies clients
-func handleRoomNotifications() {
-	dispatchBroadcast(roomNotificationQueue)
+func handleRoomNotifications(wg *sync.WaitGroup) {
+	dispatchBroadcast(roomNotificationQueue, wg)
 }
 
 // Dispatches broadcasts from a selected channel
-func dispatchBroadcast (chn chan BroadcastRequest) {
+func dispatchBroadcast (chn chan BroadcastRequest, wg *sync.WaitGroup) {
+	wg.Done()
 	for {
 		request := <-chn
 		for _, user := range request.receivers {
@@ -163,27 +165,36 @@ func sendBroadcast(client *websocket.Conn, msg OutgoingBroadcast) {
 	}
 }
 
-func main() {
-
+func startWebServer() {
 	fs := http.FileServer(http.Dir("./web/dist"))
 	http.Handle("/", fs)
-
-	// the function will launch a new goroutine for each request
 	http.HandleFunc("/ws", handleConnections)
 
-	// Launch a few thread that send out messages
-	for i := 0; i < 5; i++ {
-		go handleMessageBroadcasting()
-	}
-
-	// Launch a few thread that send out room notifications
-	for i := 0; i < 5; i++ {
-		go handleRoomNotifications()
-	}
-
+	// the function will launch a new goroutine for each request
 	log.Println("http server started on :8000")
 	err := http.ListenAndServe(":8000", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+}
+
+func startMessagingRoutines() {
+	// Launch a few thread that send out messages
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go handleMessageBroadcasting(&wg)
+	}
+
+	// Launch a few thread that send out room notifications
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go handleRoomNotifications(&wg)
+	}
+	wg.Wait()
+}
+
+func main() {
+	startMessagingRoutines()
+	startWebServer()
 }

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gorilla/websocket"
+	"sync"
 	"testing"
 )
 
@@ -42,7 +44,14 @@ func TestRemovingUserFromRoomStorage(t *testing.T) {
 }
 
 func TestWSConnection(t *testing.T) {
-	go main()
+	go startWebServer()
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go handleMessageBroadcasting(&wg)
+	go handleRoomNotifications(&wg)
+	wg.Wait()
+	fmt.Println("Test setup ready")
+
 	u := "ws://localhost:8000/ws"
 	// Connect to the server
 	ws, _, err := websocket.DefaultDialer.Dial(u, nil)
@@ -61,7 +70,6 @@ func TestWSConnection(t *testing.T) {
 	}
 
 	var msg IncomingMessage
-	// Read in a new message as JSON and map it to a Message object
 	err = ws.ReadJSON(&msg)
 	if err != nil || msg.MsgType != "room_list" {
 		t.Fatalf("%v", err)
