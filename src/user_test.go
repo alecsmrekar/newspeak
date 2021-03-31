@@ -5,6 +5,7 @@ import (
 	"testing"
 )
 
+
 func TestInitUserData(t *testing.T) {
 	var con *websocket.Conn
 	user := User{
@@ -40,3 +41,29 @@ func TestRemovingUserFromRoomStorage(t *testing.T) {
 	}
 }
 
+func TestWSConnection(t *testing.T) {
+	go main()
+	u := "ws://localhost:8000/ws"
+	// Connect to the server
+	ws, _, err := websocket.DefaultDialer.Dial(u, nil)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	defer ws.Close()
+
+	payload := IncomingMessage{
+		Username: "pengiun",
+		MsgType:  "register",
+	}
+
+	if err := ws.WriteJSON(payload); err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	var msg IncomingMessage
+	// Read in a new message as JSON and map it to a Message object
+	err = ws.ReadJSON(&msg)
+	if err != nil || msg.MsgType != "room_list" {
+		t.Fatalf("%v", err)
+	}
+}
