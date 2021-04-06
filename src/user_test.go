@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"sync"
 	"testing"
 )
@@ -43,7 +47,7 @@ func TestRemovingUserFromRoomStorage(t *testing.T) {
 	}
 }
 
-func TestWSConnection(t *testing.T) {
+/*func TestWSConnection(t *testing.T) {
 	go startWebServer()
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -74,4 +78,90 @@ func TestWSConnection(t *testing.T) {
 	if err != nil || msg.MsgType != "room_list" {
 		t.Fatalf("%v", err)
 	}
+}*/
+
+func TestWSConnectionV2(t *testing.T) {
+	s, ws := newWSServer(t, handleConnections)
+	defer s.Close()
+	defer ws.Close()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go handleMessageBroadcasting(&wg)
+	go handleRoomNotifications(&wg)
+	wg.Wait()
+	fmt.Println("Test setup ready")
+
+	payload := IncomingMessage{
+		Username: "pengiun",
+		MsgType:  "register",
+	}
+
+	sendMessage(t, ws, payload)
+	msg := receiveWSMessage(t, ws)
+	if msg.Type != "room_list" {
+		t.Error("Extected room list")
+	}
+}
+
+func newWSServer(t *testing.T, h http.HandlerFunc) (*httptest.Server, *websocket.Conn) {
+	t.Helper()
+
+	s := httptest.NewServer(h)
+	wsURL := httpToWS(t, s.URL)
+
+	ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return s, ws
+}
+
+func httpToWS(t *testing.T, u string) string {
+	t.Helper()
+
+	wsURL, err := url.Parse(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	switch wsURL.Scheme {
+	case "http":
+		wsURL.Scheme = "ws"
+	case "https":
+		wsURL.Scheme = "wss"
+	}
+
+	return wsURL.String()
+}
+
+func sendMessage(t *testing.T, ws *websocket.Conn, msg IncomingMessage) {
+	t.Helper()
+
+	m, err := json.Marshal(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ws.WriteMessage(websocket.BinaryMessage, m); err != nil {
+		t.Fatalf("%v", err)
+	}
+}
+
+func receiveWSMessage(t *testing.T, ws *websocket.Conn) OutgoingBroadcast {
+	t.Helper()
+
+	_, m, err := ws.ReadMessage()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	var reply OutgoingBroadcast
+	err = json.Unmarshal(m, &reply)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return reply
 }
