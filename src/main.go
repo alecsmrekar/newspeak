@@ -147,7 +147,10 @@ func handleRoomNotifications(wg *sync.WaitGroup) {
 func dispatchBroadcast (chn chan BroadcastRequest, wg *sync.WaitGroup) {
 	wg.Done()
 	for {
-		request := <-chn
+		request, ok := <-chn
+		if !ok {
+			return
+		}
 		for _, user := range request.receivers {
 			sendBroadcast(user, request.broadcast)
 		}
@@ -197,4 +200,10 @@ func startMessagingRoutines() {
 func main() {
 	startMessagingRoutines()
 	startWebServer()
+}
+
+// Closes the broadcast channels and stops the goroutines
+func closeBroadcastChannels() {
+	close(broadcast)
+	close(roomNotificationQueue)
 }

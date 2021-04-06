@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"net/http/httptest"
@@ -47,51 +46,21 @@ func TestRemovingUserFromRoomStorage(t *testing.T) {
 	}
 }
 
-/*func TestWSConnection(t *testing.T) {
-	go startWebServer()
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go handleMessageBroadcasting(&wg)
-	go handleRoomNotifications(&wg)
-	wg.Wait()
-	fmt.Println("Test setup ready")
-
-	u := "ws://localhost:8000/ws"
-	// Connect to the server
-	ws, _, err := websocket.DefaultDialer.Dial(u, nil)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	defer ws.Close()
-
-	payload := IncomingMessage{
-		Username: "pengiun",
-		MsgType:  "register",
-	}
-
-	if err := ws.WriteJSON(payload); err != nil {
-		t.Fatalf("%v", err)
-	}
-
-	var msg IncomingMessage
-	err = ws.ReadJSON(&msg)
-	if err != nil || msg.MsgType != "room_list" {
-		t.Fatalf("%v", err)
-	}
-}*/
-
 func TestWSConnectionV2(t *testing.T) {
+	// Start WS Socker Handler
 	s, ws := newWSServer(t, handleConnections)
 	defer s.Close()
 	defer ws.Close()
 
+	// Start channels broadcasting
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go handleMessageBroadcasting(&wg)
 	go handleRoomNotifications(&wg)
+	defer closeBroadcastChannels()
 	wg.Wait()
-	fmt.Println("Test setup ready")
 
+	// Start test
 	payload := IncomingMessage{
 		Username: "pengiun",
 		MsgType:  "register",
