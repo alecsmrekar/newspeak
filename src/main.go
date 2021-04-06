@@ -134,12 +134,12 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 // Receives messages from the broadcast channel and sends them out
-func handleMessageBroadcasting(wg *sync.WaitGroup) {
+func handleMessageBroadcasting(wg *sync.WaitGroup, chn chan BroadcastRequest) {
 	dispatchBroadcast(broadcast, wg)
 }
 
 // Receives newly created rooms and and notifies clients
-func handleRoomNotifications(wg *sync.WaitGroup) {
+func handleRoomNotifications(wg *sync.WaitGroup, chn chan BroadcastRequest) {
 	dispatchBroadcast(roomNotificationQueue, wg)
 }
 
@@ -181,29 +181,29 @@ func startWebServer() {
 	}
 }
 
-func startMessagingRoutines() {
-	// Launch a few thread that send out messages
+func startMessagingRoutines(msg chan BroadcastRequest, room chan BroadcastRequest) {
+	// Launch a few threads that send out messages
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
-		go handleMessageBroadcasting(&wg)
+		go handleMessageBroadcasting(&wg, msg)
 	}
 
-	// Launch a few thread that send out room notifications
+	// Launch a few threads that send out room notifications
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
-		go handleRoomNotifications(&wg)
+		go handleRoomNotifications(&wg, room)
 	}
 	wg.Wait()
 }
 
 func main() {
-	startMessagingRoutines()
+	startMessagingRoutines(broadcast, roomNotificationQueue)
 	startWebServer()
 }
 
 // Closes the broadcast channels and stops the goroutines
-func closeBroadcastChannels() {
-	close(broadcast)
-	close(roomNotificationQueue)
+func closeBroadcastChannels(msg chan BroadcastRequest, room chan BroadcastRequest) {
+	close(msg)
+	close(room)
 }

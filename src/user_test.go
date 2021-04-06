@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sync"
 	"testing"
 )
 
@@ -46,19 +45,40 @@ func TestRemovingUserFromRoomStorage(t *testing.T) {
 	}
 }
 
-func TestWSConnectionV2(t *testing.T) {
-	// Start WS Socker Handler
-	s, ws := newWSServer(t, handleConnections)
-	defer s.Close()
-	defer ws.Close()
-
+func TestRegistrationMessageLoad(t *testing.T) {
 	// Start channels broadcasting
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go handleMessageBroadcasting(&wg)
-	go handleRoomNotifications(&wg)
-	defer closeBroadcastChannels()
-	wg.Wait()
+	var broadcast = make(chan BroadcastRequest)
+	var roomNotificationQueue = make(chan BroadcastRequest, 1000)
+	startMessagingRoutines(broadcast, roomNotificationQueue)
+	defer closeBroadcastChannels(broadcast, roomNotificationQueue)
+
+	// Start test
+	payload := IncomingMessage{
+		Username: "pengiun",
+		MsgType:  "register",
+	}
+
+	for i := 0; i < 500;i++ {
+		s, ws := newWSServer(t, handleConnections)
+		sendMessage(t, ws, payload)
+		msg := receiveWSMessage(t, ws)
+		if msg.Type != "room_list" {
+			t.Error("Expected room list")
+		}
+		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		s.Close()
+		ws.Close()
+	}
+}
+
+func TestRoomJoin(t *testing.T) {
+	s, ws := newWSServer(t, handleConnections)
+	s_lobby, ws_lobby := newWSServer(t, handleConnections)
+	// Start channels broadcasting
+	var broadcast = make(chan BroadcastRequest)
+	var roomNotificationQueue = make(chan BroadcastRequest, 1000)
+	startMessagingRoutines(broadcast, roomNotificationQueue)
+	defer closeBroadcastChannels(broadcast, roomNotificationQueue)
 
 	// Start test
 	payload := IncomingMessage{
@@ -67,10 +87,25 @@ func TestWSConnectionV2(t *testing.T) {
 	}
 
 	sendMessage(t, ws, payload)
-	msg := receiveWSMessage(t, ws)
-	if msg.Type != "room_list" {
-		t.Error("Extected room list")
+	sendMessage(t, ws_lobby, payload)
+	_ = receiveWSMessage(t, ws)
+	_ = receiveWSMessage(t, ws_lobby)
+
+	payload = IncomingMessage{
+		RoomName: "Test",
+		MsgType:  "create_room",
+		Lat: 42,
+		Lng: 42,
 	}
+	sendMessage(t, ws, payload)
+	msg := receiveWSMessage(t, ws_lobby)
+	if msg.Type != "room_list" {
+		t.Error("Expected room list")
+	}
+	s.Close()
+	ws.Close()
+	s_lobby.Close()
+	ws_lobby.Close()
 }
 
 func newWSServer(t *testing.T, h http.HandlerFunc) (*httptest.Server, *websocket.Conn) {
