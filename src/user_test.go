@@ -24,8 +24,10 @@ func TestInitUserData(t *testing.T) {
 
 func TestRemovingUserFromRoomStorage(t *testing.T) {
 	var con *websocket.Conn
+
 	roomStorage = RoomStorage{items: make(map[int]Room)}
 	clientsMap = ClientsMap{items: make(map[UserUUID]User)}
+
 	user := User{
 		connectionKey: con,
 		currentRoom: 1,
@@ -47,6 +49,8 @@ func TestRemovingUserFromRoomStorage(t *testing.T) {
 
 func TestRegistrationMessageLoad(t *testing.T) {
 	// Start channels broadcasting
+	roomStorage = RoomStorage{items: make(map[int]Room)}
+	clientsMap = ClientsMap{items: make(map[UserUUID]User)}
 	var broadcast = make(chan BroadcastRequest)
 	var roomNotificationQueue = make(chan BroadcastRequest, 1000)
 	startMessagingRoutines(broadcast, roomNotificationQueue)
@@ -58,6 +62,7 @@ func TestRegistrationMessageLoad(t *testing.T) {
 		MsgType:  "register",
 	}
 
+	// TODO make this multihtreaded
 	for i := 0; i < 500;i++ {
 		s, ws := newWSServer(t, handleConnections)
 		sendMessage(t, ws, payload)
@@ -72,8 +77,14 @@ func TestRegistrationMessageLoad(t *testing.T) {
 }
 
 func TestRoomJoin(t *testing.T) {
+	roomStorage = RoomStorage{items: make(map[int]Room)}
+	clientsMap = ClientsMap{items: make(map[UserUUID]User)}
+
+	// Three test connections
 	s, ws := newWSServer(t, handleConnections)
 	s_lobby, ws_lobby := newWSServer(t, handleConnections)
+	s_joined, ws_joined := newWSServer(t, handleConnections)
+
 	// Start channels broadcasting
 	var broadcast = make(chan BroadcastRequest)
 	var roomNotificationQueue = make(chan BroadcastRequest, 1000)
@@ -86,11 +97,15 @@ func TestRoomJoin(t *testing.T) {
 		MsgType:  "register",
 	}
 
+	// Register all three users
 	sendMessage(t, ws, payload)
 	sendMessage(t, ws_lobby, payload)
+	sendMessage(t, ws_joined, payload)
 	_ = receiveWSMessage(t, ws)
 	_ = receiveWSMessage(t, ws_lobby)
+	_ = receiveWSMessage(t, ws_joined)
 
+	// Create a room
 	payload = IncomingMessage{
 		RoomName: "Test",
 		MsgType:  "create_room",
@@ -102,10 +117,40 @@ func TestRoomJoin(t *testing.T) {
 	if msg.Type != "room_list" {
 		t.Error("Expected room list")
 	}
+
+	// Second user joins the room
+	payload = IncomingMessage{
+		RoomID: 0,
+		MsgType:  "join_room",
+	}
+	sendMessage(t, ws_joined, payload)
+	msg = receiveWSMessage(t, ws)
+	if msg.Type != "room_update" {
+		t.Error("Expected room update")
+	}
+
+	// Second user leaves the room
+	payload = IncomingMessage{
+		MsgType:  "leave_room",
+	}
+	sendMessage(t, ws_joined, payload)
+	msg = receiveWSMessage(t, ws)
+	if msg.Type != "room_update" {
+		t.Error("Expected room update")
+	}
+
+	// Close all sockets
+	ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	s.Close()
 	ws.Close()
+
+	ws_lobby.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	s_lobby.Close()
 	ws_lobby.Close()
+
+	ws_joined.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	s_joined.Close()
+	ws_joined.Close()
 }
 
 func newWSServer(t *testing.T, h http.HandlerFunc) (*httptest.Server, *websocket.Conn) {

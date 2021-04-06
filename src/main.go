@@ -87,7 +87,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ****** Test data: create some sample rooms
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 0; i++ {
 		nr := rand.Intn(50000)
 		c1 := coordinate(rand.Intn(80))
 		c2 := coordinate(rand.Intn(80))
@@ -184,13 +184,13 @@ func startWebServer() {
 func startMessagingRoutines(msg chan BroadcastRequest, room chan BroadcastRequest) {
 	// Launch a few threads that send out messages
 	var wg sync.WaitGroup
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go handleMessageBroadcasting(&wg, msg)
 	}
 
 	// Launch a few threads that send out room notifications
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go handleRoomNotifications(&wg, room)
 	}
