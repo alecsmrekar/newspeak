@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 )
 
@@ -62,18 +63,27 @@ func TestRegistrationMessageLoad(t *testing.T) {
 		MsgType:  "register",
 	}
 
-	// TODO make this multihtreaded
-	for i := 0; i < 500;i++ {
-		s, ws := newWSServer(t, handleConnections)
-		sendMessage(t, ws, payload)
-		msg := receiveWSMessage(t, ws)
-		if msg.Type != "room_list" {
-			t.Error("Expected room list")
-		}
-		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-		s.Close()
-		ws.Close()
+	volume := 1000
+	threads := 5
+	var wg sync.WaitGroup
+	wg.Add(threads)
+	for i := 0; i < threads;i++ {
+		go func() {
+			for j := 0; j < volume; j++ {
+				s, ws := newWSServer(t, handleConnections)
+				sendMessage(t, ws, payload)
+				msg := receiveWSMessage(t, ws)
+				if msg.Type != "room_list" {
+					t.Error("Expected room list")
+				}
+				ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				s.Close()
+				ws.Close()
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func TestRoomJoin(t *testing.T) {
